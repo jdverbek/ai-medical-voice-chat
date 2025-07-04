@@ -30,7 +30,7 @@ os.makedirs(upload_folder, exist_ok=True)
 
 # Register blueprints
 app.register_blueprint(user_bp, url_prefix='/api')
-app.register_blueprint(whisper_bp, url_prefix='/api')
+app.register_blueprint(whisper_bp, url_prefix='/api/whisper')
 
 # Database configuration - Use writable path for Render deployment
 import tempfile
