@@ -212,7 +212,7 @@ class WhisperVoiceHandler {
             formData.append('prompt', 'Dit is een medisch gesprek in het Nederlands.');
 
             // Call the backend Whisper API
-            const response = await fetch('/api/transcribe', {
+            const response = await fetch('/api/whisper/transcribe', {
                 method: 'POST',
                 body: formData
             });
