@@ -177,7 +177,7 @@ class WhisperVoiceHandler {
 
     async processAudioWithWhisper(audioBlob) {
         try {
-            // Call Whisper API directly with audioBlob
+            // Call Whisper API directly with audio blob
             const transcript = await this.callWhisperAPI(audioBlob);
             
             if (transcript && transcript.trim().length > 0) {
@@ -198,7 +198,7 @@ class WhisperVoiceHandler {
             
         } catch (error) {
             console.error('Whisper processing error:', error);
-            this.showVoiceFeedback(error.message || 'Fout bij spraakherkenning. Probeer het opnieuw.');
+            this.showVoiceFeedback('Fout bij spraakherkenning. Probeer het opnieuw.');
             this.updateVoiceUI('idle');
         }
     }
@@ -210,40 +210,29 @@ class WhisperVoiceHandler {
             formData.append('audio', audioBlob, 'recording.webm');
             formData.append('language', 'nl');
             formData.append('prompt', 'Dit is een medisch gesprek in het Nederlands.');
-
-            // Call the backend Whisper API
+            
+            // Call our Flask backend Whisper API
             const response = await fetch('/api/whisper/transcribe', {
                 method: 'POST',
                 body: formData
             });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
             
-            if (!data.transcript || data.transcript.trim().length === 0) {
-                throw new Error('Geen spraak gedetecteerd');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
-
-            console.log('Whisper API response:', data);
-            return data.transcript;
+            
+            const result = await response.json();
+            
+            if (result.error) {
+                throw new Error(result.error);
+            }
+            
+            console.log('Whisper API response:', result);
+            return result.transcript;
             
         } catch (error) {
             console.error('Whisper API error:', error);
-            
-            // Provide user-friendly error messages
-            if (error.message.includes('API key')) {
-                throw new Error('Spraakherkenning service niet geconfigureerd');
-            } else if (error.message.includes('network') || error.message.includes('fetch')) {
-                throw new Error('Netwerkfout - controleer uw internetverbinding');
-            } else if (error.message.includes('Geen spraak')) {
-                throw new Error('Geen spraak gedetecteerd - probeer opnieuw');
-            } else {
-                throw new Error('Spraakherkenning tijdelijk niet beschikbaar');
-            }
+            throw new Error('Spraakherkenning service niet beschikbaar');
         }
     }
 

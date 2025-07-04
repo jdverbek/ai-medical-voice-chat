@@ -1,9 +1,9 @@
 import os
+import sys
 import tempfile
 import logging
-from flask import Flask, send_from_directory, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -14,19 +14,50 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'static'))
-
-# Configuration
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'asdf#FGSgvasgf$5$WGT')
-app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_CONTENT_LENGTH', 16777216))  # 16MB
+app.config['SECRET_KEY'] = 'asdf#FGSgvasgf$5$WGT'
 
 # Enable CORS for all routes
-CORS(app, origins=os.getenv('CORS_ORIGINS', '*').split(','))
+CORS(app)
 
 ALLOWED_EXTENSIONS = {'wav', 'mp3', 'mp4', 'mpeg', 'mpga', 'm4a', 'ogg', 'webm'}
 
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/api/whisper/health', methods=['GET'])
+def whisper_health():
+    """Health check for Whisper service"""
+    try:
+        openai_api_key = os.getenv('OPENAI_API_KEY')
+        api_key_configured = bool(openai_api_key and openai_api_key != 'your_openai_api_key_here')
+        
+        openai_available = False
+        openai_version = None
+        try:
+            import openai
+            openai_available = True
+            openai_version = getattr(openai, '__version__', 'unknown')
+        except ImportError:
+            openai_available = False
+            openai_version = 'not installed'
+        
+        return jsonify({
+            'status': 'healthy',
+            'service': 'whisper-api',
+            'api_key_configured': api_key_configured,
+            'openai_available': openai_available,
+            'openai_version': openai_version,
+            'supported_formats': list(ALLOWED_EXTENSIONS),
+            'mode': 'production' if (api_key_configured and openai_available) else 'demo'
+        }), 200
+    except Exception as e:
+        logger.error(f"Health check error: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'service': 'whisper-api',
+            'error': str(e)
+        }), 500
 
 @app.route('/api/whisper/transcribe', methods=['POST'])
 def transcribe_audio():
@@ -223,27 +254,9 @@ def estimate_confidence(transcript):
     # Ensure confidence is between 0 and 1
     return max(0.0, min(1.0, confidence))
 
-@app.route('/api/whisper/health', methods=['GET'])
-def whisper_health():
-    """Health check for Whisper service"""
-    openai_api_key = os.getenv('OPENAI_API_KEY')
-    api_key_configured = bool(openai_api_key and openai_api_key != 'your_openai_api_key_here')
-    
-    try:
-        from openai import OpenAI
-        client = OpenAI(api_key=openai_api_key if api_key_configured else "test")
-        openai_available = True
-    except ImportError:
-        openai_available = False
-    
-    return jsonify({
-        'status': 'healthy',
-        'service': 'whisper-api',
-        'api_key_configured': api_key_configured,
-        'openai_available': openai_available,
-        'supported_formats': list(ALLOWED_EXTENSIONS),
-        'mode': 'production' if (api_key_configured and openai_available) else 'demo'
-    }), 200
+@app.route('/health')
+def health_check():
+    return jsonify({'status': 'healthy', 'service': 'medical-voice-chat-backend'}), 200
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
@@ -261,11 +274,6 @@ def serve(path):
         else:
             return "index.html not found", 404
 
-@app.route('/health')
-def health_check():
-    return {'status': 'healthy', 'service': 'medical-voice-chat-backend'}, 200
-
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
-    debug = os.getenv('FLASK_ENV') == 'development'
-    app.run(host='0.0.0.0', port=port, debug=debug)
+    app.run(host='0.0.0.0', port=port, debug=False)
