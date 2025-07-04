@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cardiologische AI Assistent - OpenAI Realtime API</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
     <style>
         * {
             margin: 0;
@@ -12,50 +13,38 @@
         }
         
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             color: white;
         }
         
         .container {
-            max-width: 1400px;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
-            display: grid;
-            grid-template-columns: 1fr 300px;
-            gap: 30px;
-        }
-        
-        .main-content {
-            min-height: 100vh;
-        }
-        
-        .sidebar {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 20px;
-            border-radius: 15px;
-            height: fit-content;
-            position: sticky;
-            top: 20px;
         }
         
         .header {
             text-align: center;
-            margin-bottom: 40px;
+            margin-bottom: 30px;
         }
         
         .header h1 {
             font-size: 2.5rem;
             margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
         }
         
-        .header p {
+        .header .subtitle {
             font-size: 1.2rem;
             opacity: 0.9;
         }
         
-        .status-bar {
+        .status {
             background: rgba(255, 255, 255, 0.1);
             padding: 15px;
             border-radius: 10px;
@@ -63,406 +52,465 @@
             text-align: center;
         }
         
-        .status-indicator {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            margin-right: 10px;
-            animation: pulse 2s infinite;
+        .status.connected {
+            background: rgba(76, 175, 80, 0.3);
         }
         
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+        .status.error {
+            background: rgba(244, 67, 54, 0.3);
         }
         
-        .status-indicator.ready { background: #4CAF50; }
-        .status-indicator.connecting { background: #FF9800; }
-        .status-indicator.connected { background: #2196F3; }
-        .status-indicator.error { background: #F44336; }
-        
-        .api-section {
+        .config-section {
             background: rgba(255, 255, 255, 0.1);
             padding: 30px;
             border-radius: 15px;
             margin-bottom: 30px;
         }
         
-        .api-section h2 {
-            margin-bottom: 15px;
-            font-size: 1.5rem;
-        }
-        
-        .api-input-group {
+        .config-section h2 {
+            margin-bottom: 20px;
             display: flex;
-            gap: 15px;
-            margin-bottom: 15px;
+            align-items: center;
+            gap: 10px;
         }
         
-        .api-input {
-            flex: 1;
-            padding: 15px;
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 12px;
             border: none;
             border-radius: 8px;
-            font-size: 1rem;
+            font-size: 16px;
             background: rgba(255, 255, 255, 0.9);
             color: #333;
         }
         
         .btn {
-            padding: 15px 30px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            display: inline-block;
-            text-align: center;
-        }
-        
-        .btn-primary {
             background: #4CAF50;
             color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
         }
         
-        .btn-primary:hover {
+        .btn:hover {
             background: #45a049;
-            transform: translateY(-2px);
         }
         
-        .btn-primary:disabled {
+        .btn:disabled {
             background: #ccc;
             cursor: not-allowed;
-            transform: none;
         }
         
-        .start-section {
+        .conversation-section {
             display: none;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
             margin-bottom: 30px;
         }
         
-        .start-card {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 30px;
-            border-radius: 15px;
-            text-align: center;
-            transition: transform 0.3s ease;
-        }
-        
-        .start-card:hover {
-            transform: translateY(-5px);
-        }
-        
-        .start-card h3 {
-            margin-bottom: 15px;
-            font-size: 1.3rem;
-        }
-        
-        .start-card p {
-            margin-bottom: 20px;
-            opacity: 0.9;
-        }
-        
-        .btn-voice {
-            background: #FF6B6B;
-            color: white;
-            width: 100%;
-            padding: 20px;
-            font-size: 1.1rem;
-        }
-        
-        .btn-voice:hover {
-            background: #ff5252;
-        }
-        
-        .btn-text {
-            background: #4ECDC4;
-            color: white;
-            width: 100%;
-            padding: 20px;
-            font-size: 1.1rem;
-        }
-        
-        .btn-text:hover {
-            background: #26a69a;
-        }
-        
-        .conversation-area {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 30px;
-            border-radius: 15px;
-            min-height: 500px;
-            display: none;
-        }
-        
-        .conversation-area.active {
+        .conversation-section.active {
             display: block;
         }
         
-        .messages-container {
-            max-height: 400px;
-            overflow-y: auto;
-            margin-bottom: 20px;
-            padding: 15px;
-            background: rgba(0, 0, 0, 0.1);
-            border-radius: 10px;
-        }
-        
-        .message {
-            background: rgba(255, 255, 255, 0.2);
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 15px;
-        }
-        
-        .message.user {
-            background: rgba(76, 175, 80, 0.3);
-            margin-left: 50px;
-        }
-        
-        .message.assistant {
-            background: rgba(33, 150, 243, 0.3);
-            margin-right: 50px;
-        }
-        
         .voice-controls {
-            display: none;
+            display: flex;
             gap: 15px;
+            margin-bottom: 20px;
             justify-content: center;
-            margin-top: 20px;
         }
         
-        .voice-status {
-            text-align: center;
-            padding: 10px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            margin-bottom: 15px;
-            font-weight: 600;
-            display: none;
+        .voice-btn {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         
-        .voice-status.listening {
-            background: rgba(255, 107, 107, 0.3);
+        .voice-btn.recording {
+            background: #ff9800;
             animation: pulse 1s infinite;
         }
         
-        .voice-status.processing {
-            background: rgba(255, 152, 0, 0.3);
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
         }
         
-        .voice-status.speaking {
+        .conversation-display {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 10px;
+            min-height: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        
+        .message.user {
             background: rgba(33, 150, 243, 0.3);
+            margin-left: 20px;
         }
         
-        .voice-status.ready {
+        .message.assistant {
             background: rgba(76, 175, 80, 0.3);
+            margin-right: 20px;
         }
         
-        .error-message {
-            background: #F44336;
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: none;
-        }
-        
-        .success-message {
-            background: #4CAF50;
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: none;
+        .message .role {
+            font-weight: bold;
+            margin-bottom: 5px;
         }
         
         .progress-section {
-            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
         }
         
-        .progress-section h3 {
-            margin-bottom: 15px;
-            font-size: 1.2rem;
+        .progress-bar {
+            background: rgba(255, 255, 255, 0.2);
+            height: 10px;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 10px;
         }
         
-        .realtime-badge {
-            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+        .progress-fill {
+            background: #4CAF50;
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        
+        .error-message {
+            background: rgba(244, 67, 54, 0.3);
             color: white;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            display: inline-block;
-            margin-left: 10px;
-        }
-        
-        #text-controls {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
             display: none;
         }
         
-        #text-controls > div {
-            display: flex;
-            gap: 15px;
-            margin-top: 20px;
+        .error-message.show {
+            display: block;
         }
         
-        #text-input {
-            flex: 1;
-            padding: 15px;
-            border: none;
-            border-radius: 8px;
-            color: #333;
-            font-size: 1rem;
-        }
-        
-        @media (max-width: 1024px) {
-            .container {
-                grid-template-columns: 1fr;
-                gap: 20px;
-            }
-            
-            .sidebar {
-                position: static;
-            }
-        }
-        
-        @media (max-width: 768px) {
-            .start-section {
-                grid-template-columns: 1fr;
-            }
-            
-            .api-input-group {
-                flex-direction: column;
-            }
+        .privacy-note {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="main-content">
-            <div class="header">
-                <h1>🏥 Cardiologische AI Assistent</h1>
-                <p>OpenAI Realtime API voor echte speech-to-speech conversaties<span class="realtime-badge">REALTIME API</span></p>
+        <div class="header">
+            <h1>
+                🏥 Cardiologische AI Assistent
+            </h1>
+            <div class="subtitle">
+                OpenAI Realtime API voor echte speech-to-speech conversaties
+                <span style="background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 12px; font-size: 0.8rem; margin-left: 10px;">REALTIME API</span>
+            </div>
+        </div>
+        
+        <div id="status" class="status">
+            🔄 Verbonden met server
+        </div>
+        
+        <div class="error-message" id="errorMessage"></div>
+        
+        <div class="config-section" id="configSection">
+            <h2>🔑 OpenAI Realtime API Configuratie</h2>
+            <p>Voer uw OpenAI API key in voor echte speech-to-speech functionaliteit:</p>
+            
+            <div class="input-group">
+                <label for="apiKey">OpenAI API Key:</label>
+                <input type="password" id="apiKey" placeholder="sk-..." />
             </div>
             
-            <div class="status-bar">
-                <span class="status-indicator ready" id="status-indicator"></span>
-                <span id="status-text">Klaar voor OpenAI Realtime API configuratie</span>
+            <button class="btn" id="connectBtn" onclick="connectToRealtime()">
+                Verbinden met Realtime API
+            </button>
+            
+            <div class="privacy-note">
+                🔒 Uw API key wordt alleen lokaal gebruikt voor directe WebSocket verbinding
+            </div>
+        </div>
+        
+        <div class="conversation-section" id="conversationSection">
+            <h2>🎤 Spraakgesprek</h2>
+            <p>Echte speech-to-speech conversatie met OpenAI Realtime API - geen herhaalde vragen</p>
+            
+            <div class="voice-controls">
+                <button class="voice-btn" id="startRecordingBtn" onclick="startRecording()">
+                    🎤 Start Opname
+                </button>
+                <button class="voice-btn" id="stopRecordingBtn" onclick="stopRecording()" style="display: none;">
+                    ⏹️ Stop Opname
+                </button>
             </div>
             
-            <div class="error-message" id="error-message"></div>
-            <div class="success-message" id="success-message"></div>
-            
-            <div class="api-section">
-                <h2>🔑 OpenAI Realtime API Configuratie</h2>
-                <p>Voer uw OpenAI API key in voor echte speech-to-speech functionaliteit:</p>
-                <div class="api-input-group">
-                    <input type="password" class="api-input" id="api-key-input" placeholder="sk-..." />
-                    <button class="btn btn-primary" id="save-api-key">Verbinden met Realtime API</button>
-                </div>
-                <p style="font-size: 0.9rem; opacity: 0.8;">🔒 Uw API key wordt alleen lokaal gebruikt voor directe WebSocket verbinding</p>
-            </div>
-            
-            <div class="start-section" id="start-section">
-                <div class="start-card">
-                    <h3>🎤 Spraakgesprek</h3>
-                    <p>Echte speech-to-speech conversatie met OpenAI Realtime API - geen herhaalde vragen</p>
-                    <button class="btn btn-voice" id="start-voice-btn">Start Spraakgesprek</button>
-                </div>
-                
-                <div class="start-card">
-                    <h3>💬 Tekstgesprek</h3>
-                    <p>Type uw antwoorden en ontvang intelligente vervolgvragen</p>
-                    <button class="btn btn-text" id="start-text-btn">Start Tekstgesprek</button>
-                </div>
-            </div>
-            
-            <div class="conversation-area" id="conversation-area">
-                <h3 id="conversation-title">Conversatie</h3>
-                
-                <div class="voice-status" id="voice-status">
-                    Klaar om te beginnen
-                </div>
-                
-                <div class="messages-container" id="messages-container"></div>
-                
-                <div class="voice-controls" id="voice-controls">
-                    <button class="btn btn-primary" id="record-btn">🎤 Start Opname</button>
-                    <button class="btn btn-primary" id="stop-btn" style="display: none;">⏹️ Stop Opname</button>
-                </div>
-                
-                <div id="text-controls">
-                    <div>
-                        <input type="text" id="text-input" placeholder="Typ uw bericht..." />
-                        <button class="btn btn-primary" id="send-btn">Verstuur</button>
-                    </div>
-                </div>
-                
-                <div style="text-align: center; margin-top: 20px;">
-                    <button class="btn btn-primary" id="back-btn">← Terug naar Start</button>
+            <div class="conversation-display" id="conversationDisplay">
+                <div class="message assistant">
+                    <div class="role">AI Cardioloog:</div>
+                    <div>Welkom! Ik ga een cardiologische anamnese met u afnemen. Wat is uw belangrijkste hartklacht?</div>
                 </div>
             </div>
         </div>
         
-        <div class="sidebar">
-            <div class="progress-section">
-                <h3>📊 Anamnese Voortgang</h3>
-                <div id="conversation-progress">
-                    <p style="opacity: 0.8;">Start een conversatie om voortgang te zien</p>
-                </div>
+        <div class="progress-section">
+            <h3>📊 Anamnese Voortgang</h3>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
             </div>
-            
-            <div style="margin-top: 30px;">
-                <h3>🎯 Wat deze AI doet</h3>
-                <ul style="list-style: none; padding: 0; margin-top: 15px;">
-                    <li style="margin-bottom: 10px;">✅ Echte speech-to-speech met OpenAI</li>
-                    <li style="margin-bottom: 10px;">✅ Voorkomt herhaalde vragen</li>
-                    <li style="margin-bottom: 10px;">✅ Systematische cardiologische anamnese</li>
-                    <li style="margin-bottom: 10px;">✅ Intelligente vraag progressie</li>
-                    <li style="margin-bottom: 10px;">✅ Real-time audio verwerking</li>
-                </ul>
-            </div>
-            
-            <div style="margin-top: 30px;">
-                <h3>🔒 Privacy & Veiligheid</h3>
-                <ul style="list-style: none; padding: 0; margin-top: 15px;">
-                    <li style="margin-bottom: 10px;">✅ Directe OpenAI verbinding</li>
-                    <li style="margin-bottom: 10px;">✅ Geen data opslag op servers</li>
-                    <li style="margin-bottom: 10px;">✅ GDPR-compliant verwerking</li>
-                    <li style="margin-bottom: 10px;">✅ End-to-end encryptie</li>
-                </ul>
-            </div>
+            <div id="progressText">Start een conversatie om voortgang te zien</div>
         </div>
     </div>
 
-    <!-- Load Socket.IO -->
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    
-    <!-- Load Realtime Client -->
-    <script src="realtime-client.js"></script>
-    
-    <!-- Global error handlers -->
     <script>
-        // Global error handler
-        window.addEventListener('error', (event) => {
-            console.error('Global error:', event.error);
-        });
+        // Global variables
+        let socket;
+        let isRecording = false;
+        let mediaRecorder;
+        let audioChunks = [];
+        let isConnectedToRealtime = false;
         
-        // Unhandled promise rejection handler
-        window.addEventListener('unhandledrejection', (event) => {
-            console.error('Unhandled promise rejection:', event.reason);
-        });
+        // Initialize Socket.IO connection
+        function initializeSocket() {
+            socket = io();
+            
+            socket.on('connect', function() {
+                console.log('Connected to server');
+                updateStatus('🟢 Verbonden met server', 'connected');
+            });
+            
+            socket.on('disconnect', function() {
+                console.log('Disconnected from server');
+                updateStatus('🔴 Verbinding verbroken', 'error');
+                isConnectedToRealtime = false;
+            });
+            
+            socket.on('realtime_connected', function(data) {
+                console.log('Connected to OpenAI Realtime API:', data);
+                updateStatus('🟢 Verbonden met OpenAI Realtime API', 'connected');
+                isConnectedToRealtime = true;
+                showConversationSection();
+                hideError();
+            });
+            
+            socket.on('realtime_error', function(data) {
+                console.error('Realtime API error:', data);
+                showError('OpenAI Realtime API fout: ' + data.message);
+                isConnectedToRealtime = false;
+            });
+            
+            socket.on('ai_response', function(data) {
+                console.log('AI response:', data);
+                addMessage('assistant', data.text);
+                updateProgress(data.questions_asked, data.total_phases);
+            });
+            
+            socket.on('audio_delta', function(data) {
+                // Handle streaming audio from OpenAI
+                console.log('Received audio delta');
+                // TODO: Play audio delta
+            });
+            
+            socket.on('speech_started', function() {
+                console.log('Speech started');
+                updateStatus('🎤 Spraak gedetecteerd...', 'connected');
+            });
+            
+            socket.on('speech_stopped', function() {
+                console.log('Speech stopped');
+                updateStatus('🟢 Verbonden met OpenAI Realtime API', 'connected');
+            });
+        }
         
-        // Log when page is fully loaded
-        window.addEventListener('load', () => {
-            console.log('Page fully loaded');
+        // Connect to OpenAI Realtime API
+        function connectToRealtime() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            
+            if (!apiKey) {
+                showError('Voer een geldige OpenAI API key in');
+                return;
+            }
+            
+            if (!apiKey.startsWith('sk-')) {
+                showError('API key moet beginnen met "sk-"');
+                return;
+            }
+            
+            updateStatus('🔄 Verbinden met OpenAI Realtime API...', '');
+            document.getElementById('connectBtn').disabled = true;
+            
+            socket.emit('connect_realtime', {
+                api_key: apiKey
+            });
+        }
+        
+        // Start recording audio
+        async function startRecording() {
+            if (!isConnectedToRealtime) {
+                showError('Eerst verbinden met OpenAI Realtime API');
+                return;
+            }
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        sampleRate: 24000,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    } 
+                });
+                
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: 'audio/webm;codecs=opus'
+                });
+                
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = function(event) {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                        
+                        // Convert to base64 and send to server
+                        const reader = new FileReader();
+                        reader.onload = function() {
+                            const arrayBuffer = reader.result;
+                            const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+                            socket.emit('send_audio', { audio: base64 });
+                        };
+                        reader.readAsArrayBuffer(event.data);
+                    }
+                };
+                
+                mediaRecorder.start(100); // Send data every 100ms
+                isRecording = true;
+                
+                document.getElementById('startRecordingBtn').style.display = 'none';
+                document.getElementById('stopRecordingBtn').style.display = 'block';
+                document.getElementById('stopRecordingBtn').classList.add('recording');
+                
+                updateStatus('🎤 Opname actief - spreek nu...', 'connected');
+                
+            } catch (error) {
+                console.error('Error starting recording:', error);
+                showError('Kan microfoon niet openen: ' + error.message);
+            }
+        }
+        
+        // Stop recording audio
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                isRecording = false;
+                
+                document.getElementById('startRecordingBtn').style.display = 'block';
+                document.getElementById('stopRecordingBtn').style.display = 'none';
+                document.getElementById('stopRecordingBtn').classList.remove('recording');
+                
+                updateStatus('🔄 Verwerken...', '');
+                
+                // Commit audio buffer
+                socket.emit('commit_audio');
+            }
+        }
+        
+        // Add message to conversation display
+        function addMessage(role, content) {
+            const display = document.getElementById('conversationDisplay');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            
+            const roleDiv = document.createElement('div');
+            roleDiv.className = 'role';
+            roleDiv.textContent = role === 'user' ? 'U:' : 'AI Cardioloog:';
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.textContent = content;
+            
+            messageDiv.appendChild(roleDiv);
+            messageDiv.appendChild(contentDiv);
+            display.appendChild(messageDiv);
+            
+            // Scroll to bottom
+            display.scrollTop = display.scrollHeight;
+        }
+        
+        // Update status
+        function updateStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+        
+        // Show error message
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+            
+            setTimeout(() => {
+                errorDiv.classList.remove('show');
+            }, 5000);
+        }
+        
+        // Hide error message
+        function hideError() {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.classList.remove('show');
+        }
+        
+        // Show conversation section
+        function showConversationSection() {
+            document.getElementById('conversationSection').classList.add('active');
+            document.getElementById('configSection').style.display = 'none';
+        }
+        
+        // Update progress
+        function updateProgress(questionsAsked, totalPhases) {
+            const progress = Math.min((questionsAsked / (totalPhases * 3)) * 100, 100);
+            document.getElementById('progressFill').style.width = progress + '%';
+            document.getElementById('progressText').textContent = 
+                `Vragen gesteld: ${questionsAsked} | Voortgang: ${Math.round(progress)}%`;
+        }
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeSocket();
         });
     </script>
 </body>
