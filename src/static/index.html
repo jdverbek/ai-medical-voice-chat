@@ -395,9 +395,25 @@
                     } 
                 });
                 
-                mediaRecorder = new MediaRecorder(stream, {
-                    mimeType: 'audio/webm;codecs=opus'
-                });
+                // Safari/iOS compatibility - try different mimeTypes
+                let mimeType = 'audio/mp4';
+                if (!MediaRecorder.isTypeSupported(mimeType)) {
+                    mimeType = 'audio/webm;codecs=opus';
+                    if (!MediaRecorder.isTypeSupported(mimeType)) {
+                        mimeType = 'audio/webm';
+                        if (!MediaRecorder.isTypeSupported(mimeType)) {
+                            mimeType = 'audio/wav';
+                            if (!MediaRecorder.isTypeSupported(mimeType)) {
+                                mimeType = ''; // Let browser choose
+                            }
+                        }
+                    }
+                }
+                
+                console.log('Using mimeType:', mimeType || 'browser default');
+                
+                const options = mimeType ? { mimeType } : {};
+                mediaRecorder = new MediaRecorder(stream, options);
                 
                 audioChunks = [];
                 
