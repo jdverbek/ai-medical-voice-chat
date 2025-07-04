@@ -7,7 +7,7 @@ class EnhancedConversationEngine {
         this.conversationState = new EnhancedConversationState();
         this.questionGenerator = new EnhancedQuestionGenerator(this.medicalKnowledge, this.conversationState);
         this.responseAnalyzer = new EnhancedResponseAnalyzer(this.medicalKnowledge);
-        this.emotionalIntelligence = new EmotionalIntelligence();
+        // Remove EmotionalIntelligence reference as it's not defined
         this.contextManager = new EnhancedContextManager();
         this.questionTracker = new QuestionTracker();
     }
@@ -53,7 +53,8 @@ class EnhancedConversationEngine {
             // Generate empathetic response if needed
             let empatheticResponse = null;
             try {
-                empatheticResponse = this.emotionalIntelligence.generateResponse(analysis.emotion);
+                // Generate simple empathetic response without EmotionalIntelligence class
+                empatheticResponse = this.generateSimpleEmpathy(analysis.emotion);
             } catch (empathyError) {
                 console.warn('EnhancedConversationEngine: Empathy generation failed:', empathyError);
             }
@@ -778,6 +779,40 @@ class EnhancedConversationState {
         }
         
         return impact;
+    }
+
+    // Simple empathy generation without external dependencies
+    generateSimpleEmpathy(emotion) {
+        const empathyResponses = {
+            'concern': [
+                "Ik begrijp dat dit zorgelijk voor u is.",
+                "Het is begrijpelijk dat u zich zorgen maakt.",
+                "Uw bezorgdheid is heel normaal."
+            ],
+            'pain': [
+                "Het spijt me dat u pijn heeft.",
+                "Pijn kan heel belastend zijn.",
+                "Ik begrijp dat dit oncomfortabel is."
+            ],
+            'anxiety': [
+                "Ik merk dat dit u ongerust maakt.",
+                "Het is normaal om zich zorgen te maken over uw gezondheid.",
+                "Uw gevoelens zijn heel begrijpelijk."
+            ],
+            'frustration': [
+                "Ik begrijp dat dit frustrerend kan zijn.",
+                "Het is vervelend als symptomen uw dagelijks leven beïnvloeden.",
+                "Uw frustratie is heel begrijpelijk."
+            ],
+            'default': [
+                "Dank u voor het delen van deze informatie.",
+                "Ik waardeer uw openheid.",
+                "Het is belangrijk dat u dit vertelt."
+            ]
+        };
+
+        const responses = empathyResponses[emotion] || empathyResponses['default'];
+        return responses[Math.floor(Math.random() * responses.length)];
     }
 }
 
