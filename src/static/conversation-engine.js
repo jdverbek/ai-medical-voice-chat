@@ -24,15 +24,36 @@ class ConversationEngine {
                 };
             }
 
-            // Analyze the user's response
-            const analysis = this.responseAnalyzer.analyzeResponse(userInput);
-            console.log('ConversationEngine: Analysis result:', analysis);
+            // Analyze the user's response with better error handling
+            let analysis;
+            try {
+                analysis = this.responseAnalyzer.analyzeResponse(userInput);
+                console.log('ConversationEngine: Analysis result:', analysis);
+            } catch (analysisError) {
+                console.warn('ConversationEngine: Analysis failed, using fallback:', analysisError);
+                // Fallback analysis
+                analysis = {
+                    symptoms: [],
+                    confidence: 0.7,
+                    urgency: 'routine',
+                    emotion: null,
+                    severity: 'unknown',
+                    timing: 'unknown',
+                    location: 'unknown'
+                };
+            }
             
             // Update conversation state
             this.conversationState.addResponse(userInput, analysis);
             
             // Generate empathetic response if needed
-            const empatheticResponse = this.emotionalIntelligence.generateResponse(analysis.emotion);
+            let empatheticResponse = null;
+            try {
+                empatheticResponse = this.emotionalIntelligence.generateResponse(analysis.emotion);
+            } catch (empathyError) {
+                console.warn('ConversationEngine: Empathy generation failed:', empathyError);
+                // Continue without empathetic response
+            }
             
             // Check for urgent indicators
             if (analysis.urgency === 'immediate') {
@@ -40,9 +61,16 @@ class ConversationEngine {
                 return this.handleUrgentSituation(analysis);
             }
             
-            // Generate next question intelligently
-            const nextQuestion = await this.questionGenerator.generateNextQuestion(analysis);
-            console.log('ConversationEngine: Generated question:', nextQuestion);
+            // Generate next question intelligently with fallback
+            let nextQuestion;
+            try {
+                nextQuestion = await this.questionGenerator.generateNextQuestion(analysis);
+                console.log('ConversationEngine: Generated question:', nextQuestion);
+            } catch (questionError) {
+                console.warn('ConversationEngine: Question generation failed, using fallback:', questionError);
+                // Fallback to simple follow-up questions
+                nextQuestion = this.generateFallbackQuestion(userInput, analysis);
+            }
             
             // Combine empathy with question if needed
             const fullResponse = this.combineResponses(empatheticResponse, nextQuestion);
@@ -57,14 +85,59 @@ class ConversationEngine {
             };
             
         } catch (error) {
-            console.error('ConversationEngine: Error processing response:', error);
+            console.error('ConversationEngine: Critical error processing response:', error);
+            // Only use the error message as a last resort
             return {
-                response: "Er is een probleem opgetreden. Laat me een andere vraag stellen. Hoe voelt u zich vandaag?",
+                response: this.generateFallbackQuestion(userInput, null),
                 analysis: { confidence: 0.5, urgency: 'none' },
                 urgency: 'none',
                 confidence: 0.5
             };
         }
+    }
+
+    generateFallbackQuestion(userInput, analysis) {
+        // Generate contextual fallback questions based on input
+        const input = userInput.toLowerCase();
+        
+        // If user mentioned pain
+        if (input.includes('pijn') || input.includes('zeer')) {
+            return "Kunt u mij meer vertellen over de pijn? Waar voelt u de pijn precies?";
+        }
+        
+        // If user mentioned feeling unwell
+        if (input.includes('ziek') || input.includes('niet goed') || input.includes('slecht')) {
+            return "Wat voor klachten heeft u precies? Kunt u beschrijven hoe u zich voelt?";
+        }
+        
+        // If user mentioned specific body parts
+        if (input.includes('hoofd') || input.includes('kop')) {
+            return "Heeft u hoofdpijn? Kunt u beschrijven hoe de hoofdpijn aanvoelt?";
+        }
+        
+        if (input.includes('buik') || input.includes('maag')) {
+            return "Heeft u buikpijn of maagklachten? Wanneer merkte u dit voor het eerst?";
+        }
+        
+        if (input.includes('keel') || input.includes('hals')) {
+            return "Heeft u keelpijn? Doet het pijn bij het slikken?";
+        }
+        
+        // If user mentioned timing
+        if (input.includes('gisteren') || input.includes('vandaag') || input.includes('week')) {
+            return "Dank u voor die informatie. Zijn er nog andere klachten die u heeft?";
+        }
+        
+        // Generic but helpful fallbacks
+        const fallbackQuestions = [
+            "Dank u voor uw antwoord. Kunt u mij meer details geven over uw klachten?",
+            "Ik begrijp het. Heeft u nog andere symptomen die u zorgen baren?",
+            "Dat is nuttige informatie. Wanneer begonnen deze klachten?",
+            "Kunt u beschrijven hoe ernstig uw klachten zijn op een schaal van 1 tot 10?",
+            "Heeft u nog andere klachten naast wat u al heeft genoemd?"
+        ];
+        
+        return fallbackQuestions[Math.floor(Math.random() * fallbackQuestions.length)];
     }
 
     combineResponses(empathy, question) {

@@ -403,101 +403,161 @@ class MedicalKnowledge {
 
     // Methods for intelligent question generation
     analyzeResponse(response) {
-        const analysis = {
-            symptoms: this.extractSymptoms(response),
-            severity: this.extractSeverity(response),
-            timing: this.extractTiming(response),
-            location: this.extractLocation(response),
-            urgency: this.assessUrgency(response),
-            emotion: this.detectEmotion(response),
-            confidence: this.calculateConfidence(response)
-        };
-        
-        return analysis;
+        try {
+            const analysis = {
+                symptoms: this.extractSymptoms(response) || [],
+                severity: this.extractSeverity(response) || "unknown",
+                timing: this.extractTiming(response) || "unknown",
+                location: this.extractLocation(response) || [],
+                urgency: this.assessUrgency(response) || "routine",
+                emotion: this.detectEmotion(response) || null,
+                confidence: this.calculateConfidence(response) || 0.5
+            };
+            
+            return analysis;
+        } catch (error) {
+            console.warn('MedicalKnowledge: Error in analyzeResponse, using fallback:', error);
+            // Return safe fallback analysis
+            return {
+                symptoms: [],
+                severity: "unknown",
+                timing: "unknown", 
+                location: [],
+                urgency: "routine",
+                emotion: null,
+                confidence: 0.5
+            };
+        }
     }
 
     extractSymptoms(text) {
-        const detectedSymptoms = [];
-        const lowerText = text.toLowerCase();
-        
-        for (const [symptomKey, symptomData] of Object.entries(this.symptoms)) {
-            for (const dutchTerm of symptomData.dutch) {
-                if (lowerText.includes(dutchTerm.toLowerCase())) {
-                    detectedSymptoms.push({
-                        key: symptomKey,
-                        term: dutchTerm,
-                        data: symptomData
-                    });
+        try {
+            const detectedSymptoms = [];
+            const lowerText = text.toLowerCase();
+            
+            for (const [symptomKey, symptomData] of Object.entries(this.symptoms)) {
+                if (symptomData && symptomData.dutch) {
+                    for (const dutchTerm of symptomData.dutch) {
+                        if (lowerText.includes(dutchTerm.toLowerCase())) {
+                            detectedSymptoms.push({
+                                key: symptomKey,
+                                term: dutchTerm,
+                                data: symptomData
+                            });
+                        }
+                    }
                 }
             }
+            
+            return detectedSymptoms;
+        } catch (error) {
+            console.warn('MedicalKnowledge: Error extracting symptoms:', error);
+            return [];
         }
-        
-        return detectedSymptoms;
     }
 
     extractSeverity(text) {
-        const lowerText = text.toLowerCase();
-        
-        for (const [level, indicators] of Object.entries(this.dutchMedicalTerms.severity)) {
-            for (const indicator of indicators) {
-                if (lowerText.includes(indicator)) {
-                    return level;
+        try {
+            const lowerText = text.toLowerCase();
+            
+            if (this.dutchMedicalTerms && this.dutchMedicalTerms.severity) {
+                for (const [level, indicators] of Object.entries(this.dutchMedicalTerms.severity)) {
+                    if (indicators && Array.isArray(indicators)) {
+                        for (const indicator of indicators) {
+                            if (lowerText.includes(indicator)) {
+                                return level;
+                            }
+                        }
+                    }
                 }
             }
+            
+            return "unknown";
+        } catch (error) {
+            console.warn('MedicalKnowledge: Error extracting severity:', error);
+            return "unknown";
         }
-        
-        return "unknown";
     }
 
     extractTiming(text) {
-        const lowerText = text.toLowerCase();
-        
-        for (const [timing, indicators] of Object.entries(this.dutchMedicalTerms.timing)) {
-            for (const indicator of indicators) {
-                if (lowerText.includes(indicator)) {
-                    return timing;
+        try {
+            const lowerText = text.toLowerCase();
+            
+            if (this.dutchMedicalTerms && this.dutchMedicalTerms.timing) {
+                for (const [timing, indicators] of Object.entries(this.dutchMedicalTerms.timing)) {
+                    if (indicators && Array.isArray(indicators)) {
+                        for (const indicator of indicators) {
+                            if (lowerText.includes(indicator)) {
+                                return timing;
+                            }
+                        }
+                    }
                 }
             }
+            
+            return "unknown";
+        } catch (error) {
+            console.warn('MedicalKnowledge: Error extracting timing:', error);
+            return "unknown";
         }
-        
-        return "unknown";
     }
 
     extractLocation(text) {
-        const lowerText = text.toLowerCase();
-        const locations = [];
-        
-        for (const [dutch, english] of Object.entries(this.dutchMedicalTerms.bodyParts)) {
-            if (lowerText.includes(dutch)) {
-                locations.push({dutch, english});
+        try {
+            const lowerText = text.toLowerCase();
+            const locations = [];
+            
+            if (this.dutchMedicalTerms && this.dutchMedicalTerms.bodyParts) {
+                for (const [dutch, english] of Object.entries(this.dutchMedicalTerms.bodyParts)) {
+                    if (lowerText.includes(dutch)) {
+                        locations.push({dutch, english});
+                    }
+                }
             }
+            
+            return locations;
+        } catch (error) {
+            console.warn('MedicalKnowledge: Error extracting location:', error);
+            return [];
         }
-        
-        return locations;
     }
 
     assessUrgency(text) {
-        const lowerText = text.toLowerCase();
-        
-        // Check for immediate urgency indicators
-        for (const keyword of this.urgencyIndicators.immediate.keywords) {
-            if (lowerText.includes(keyword)) {
-                return "immediate";
+        try {
+            const lowerText = text.toLowerCase();
+            
+            // Check for immediate urgency indicators
+            if (this.urgencyIndicators && this.urgencyIndicators.immediate && this.urgencyIndicators.immediate.keywords) {
+                for (const keyword of this.urgencyIndicators.immediate.keywords) {
+                    if (lowerText.includes(keyword)) {
+                        return "immediate";
+                    }
+                }
             }
+            
+            // Check for urgent indicators
+            if (this.urgencyIndicators && this.urgencyIndicators.urgent && this.urgencyIndicators.urgent.keywords) {
+                for (const keyword of this.urgencyIndicators.urgent.keywords) {
+                    if (lowerText.includes(keyword)) {
+                        return "urgent";
+                    }
+                }
+            }
+            
+            // Check for routine indicators
+            if (this.urgencyIndicators && this.urgencyIndicators.routine && this.urgencyIndicators.routine.keywords) {
+                for (const keyword of this.urgencyIndicators.routine.keywords) {
+                    if (lowerText.includes(keyword)) {
+                        return "routine";
+                    }
+                }
+            }
+            
+            return "routine";
+        } catch (error) {
+            console.warn('MedicalKnowledge: Error assessing urgency:', error);
+            return "routine";
         }
-        
-        // Check for urgent indicators
-        for (const keyword of this.urgencyIndicators.urgent.keywords) {
-            if (lowerText.includes(keyword)) {
-                return "urgent";
-            }
-        }
-        
-        // Check for routine indicators
-        for (const keyword of this.urgencyIndicators.routine.keywords) {
-            if (lowerText.includes(keyword)) {
-                return "routine";
-            }
         }
         
         return "unknown";
