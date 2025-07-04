@@ -3,6 +3,7 @@ import tempfile
 import logging
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.utils import secure_filename
+from openai import OpenAI
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -87,10 +88,10 @@ def transcribe_audio():
 
         logger.info(f"Processing audio file: {file.filename}, language: {language}")
 
-        # For production deployment, we'll use a placeholder until OpenAI is properly configured
+        # For production deployment with OpenAI Whisper API
         try:
-            # Import OpenAI here to avoid import errors if not available
-            import openai
+            # Initialize OpenAI client with API key
+            client = OpenAI(api_key=openai_api_key)
             
             # Create a temporary file to save the uploaded audio
             with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
@@ -100,16 +101,19 @@ def transcribe_audio():
             try:
                 # Call OpenAI Whisper API
                 with open(temp_file_path, 'rb') as audio_file:
-                    transcript_response = openai.audio.transcriptions.create(
+                    logger.info(f"Calling Whisper API with file: {temp_file_path}")
+                    transcript_response = client.audio.transcriptions.create(
                         model="whisper-1",
                         file=audio_file,
                         language=language,
-                        prompt=prompt,
-                        response_format="verbose_json"
+                        prompt=prompt
                     )
 
-                # Extract transcript and confidence
-                transcript = transcript_response.text.strip()
+                # Extract transcript from response
+                transcript = transcript_response.text
+                
+                # Log the full response for debugging
+                logger.info(f"Whisper API response: {transcript_response}")
                 
                 # Whisper doesn't provide confidence scores in the API response
                 # We'll estimate based on transcript length and content
@@ -121,18 +125,19 @@ def transcribe_audio():
                     'transcript': transcript,
                     'confidence': confidence,
                     'language': language,
-                    'duration': getattr(transcript_response, 'duration', None)
+                    'mode': 'production'
                 }), 200
 
             finally:
                 # Clean up temporary file
                 try:
                     os.unlink(temp_file_path)
-                except OSError:
+                except OSError as e:
+                    logger.error(f"Error removing temporary file: {e}")
                     pass
 
-        except ImportError:
-            logger.warning("OpenAI package not available, using demo mode")
+        except ImportError as e:
+            logger.warning(f"OpenAI package not available: {e}, using demo mode")
             # Fallback to demo mode
             demo_responses = [
                 "Ik heb hoofdpijn",
@@ -149,23 +154,25 @@ def transcribe_audio():
                 'transcript': transcript,
                 'confidence': 0.85,
                 'language': language,
-                'mode': 'demo'
+                'mode': 'demo (ImportError)'
             }), 200
 
         except Exception as e:
-            logger.error(f"Error processing audio: {str(e)}")
+            logger.error(f"Error processing audio with Whisper API: {str(e)}")
             return jsonify({
                 'error': f'Error processing audio: {str(e)}',
                 'transcript': '',
-                'confidence': 0.0
+                'confidence': 0.0,
+                'mode': 'error'
             }), 500
 
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
+        logger.error(f"Unexpected error in transcribe_audio: {str(e)}")
         return jsonify({
             'error': f'Unexpected error: {str(e)}',
             'transcript': '',
-            'confidence': 0.0
+            'confidence': 0.0,
+            'mode': 'error'
         }), 500
 
 def estimate_confidence(transcript):
@@ -209,7 +216,8 @@ def whisper_health():
     api_key_configured = bool(openai_api_key and openai_api_key != 'your_openai_api_key_here')
     
     try:
-        import openai
+        from openai import OpenAI
+        client = OpenAI(api_key=openai_api_key if api_key_configured else "test")
         openai_available = True
     except ImportError:
         openai_available = False
