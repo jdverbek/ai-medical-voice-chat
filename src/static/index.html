@@ -141,7 +141,7 @@
         }
         
         .start-section {
-            display: grid;
+            display: none;
             grid-template-columns: 1fr 1fr;
             gap: 30px;
             margin-bottom: 30px;
@@ -232,7 +232,7 @@
         }
         
         .voice-controls {
-            display: flex;
+            display: none;
             gap: 15px;
             justify-content: center;
             margin-top: 20px;
@@ -245,6 +245,7 @@
             border-radius: 8px;
             margin-bottom: 15px;
             font-weight: 600;
+            display: none;
         }
         
         .voice-status.listening {
@@ -302,6 +303,25 @@
             margin-left: 10px;
         }
         
+        #text-controls {
+            display: none;
+        }
+        
+        #text-controls > div {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        #text-input {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            color: #333;
+            font-size: 1rem;
+        }
+        
         @media (max-width: 1024px) {
             .container {
                 grid-template-columns: 1fr;
@@ -350,7 +370,7 @@
                 <p style="font-size: 0.9rem; opacity: 0.8;">🔒 Uw API key wordt alleen lokaal gebruikt voor directe WebSocket verbinding</p>
             </div>
             
-            <div class="start-section" id="start-section" style="display: none;">
+            <div class="start-section" id="start-section">
                 <div class="start-card">
                     <h3>🎤 Spraakgesprek</h3>
                     <p>Echte speech-to-speech conversatie met OpenAI Realtime API - geen herhaalde vragen</p>
@@ -367,20 +387,20 @@
             <div class="conversation-area" id="conversation-area">
                 <h3 id="conversation-title">Conversatie</h3>
                 
-                <div class="voice-status" id="voice-status" style="display: none;">
+                <div class="voice-status" id="voice-status">
                     Klaar om te beginnen
                 </div>
                 
                 <div class="messages-container" id="messages-container"></div>
                 
-                <div class="voice-controls" id="voice-controls" style="display: none;">
+                <div class="voice-controls" id="voice-controls">
                     <button class="btn btn-primary" id="record-btn">🎤 Start Opname</button>
                     <button class="btn btn-primary" id="stop-btn" style="display: none;">⏹️ Stop Opname</button>
                 </div>
                 
-                <div id="text-controls" style="display: none;">
-                    <div style="display: flex; gap: 15px; margin-top: 20px;">
-                        <input type="text" id="text-input" placeholder="Typ uw bericht..." style="flex: 1; padding: 15px; border: none; border-radius: 8px; color: #333;">
+                <div id="text-controls">
+                    <div>
+                        <input type="text" id="text-input" placeholder="Typ uw bericht..." />
                         <button class="btn btn-primary" id="send-btn">Verstuur</button>
                     </div>
                 </div>
@@ -422,18 +442,14 @@
         </div>
     </div>
 
-    <!-- Load OpenAI Realtime API Client -->
-    <script src="realtime-api-client.js"></script>
+    <!-- Load Socket.IO -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     
-    <!-- Load Intelligent Voice App -->
-    <script src="intelligent-voice-app.js"></script>
+    <!-- Load Realtime Client -->
+    <script src="realtime-client.js"></script>
     
-    <!-- Load voices for speech synthesis -->
+    <!-- Global error handlers -->
     <script>
-        speechSynthesis.addEventListener('voiceschanged', () => {
-            console.log('Voices loaded:', speechSynthesis.getVoices().length);
-        });
-        
         // Global error handler
         window.addEventListener('error', (event) => {
             console.error('Global error:', event.error);
@@ -443,6 +459,12 @@
         window.addEventListener('unhandledrejection', (event) => {
             console.error('Unhandled promise rejection:', event.reason);
         });
+        
+        // Log when page is fully loaded
+        window.addEventListener('load', () => {
+            console.log('Page fully loaded');
+        });
     </script>
 </body>
 </html>
+
