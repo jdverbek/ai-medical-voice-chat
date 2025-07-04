@@ -546,11 +546,82 @@
                     <div class="message-avatar">🤖</div>
                     <div class="message-content">
                         <div class="message-text">${randomResponse}</div>
+                        <div class="message-actions">
+                            <button class="speak-btn" onclick="speakText('${randomResponse.replace(/'/g, "\\'")}')">
+                                🔊 Herhaal
+                            </button>
+                        </div>
                     </div>
                 `;
                 chatMessages.appendChild(aiMessage);
                 chatMessages.scrollTop = chatMessages.scrollHeight;
+                
+                // Automatically speak the response in voice mode
+                if (document.getElementById('voiceInput').classList.contains('active')) {
+                    setTimeout(() => speakText(randomResponse), 500);
+                }
             }
         }
+        
+        // Text-to-Speech functionality
+        let speechSynthesis = window.speechSynthesis;
+        let currentUtterance = null;
+        
+        function speakText(text) {
+            // Stop any current speech
+            if (currentUtterance) {
+                speechSynthesis.cancel();
+            }
+            
+            // Create new utterance
+            currentUtterance = new SpeechSynthesisUtterance(text);
+            
+            // Configure voice settings for Dutch
+            currentUtterance.lang = 'nl-NL';
+            currentUtterance.rate = 0.9; // Slightly slower for clarity
+            currentUtterance.pitch = 1.0;
+            currentUtterance.volume = 0.8;
+            
+            // Try to find a Dutch voice
+            const voices = speechSynthesis.getVoices();
+            const dutchVoice = voices.find(voice => 
+                voice.lang.startsWith('nl') || 
+                voice.name.toLowerCase().includes('dutch') ||
+                voice.name.toLowerCase().includes('nederland')
+            );
+            
+            if (dutchVoice) {
+                currentUtterance.voice = dutchVoice;
+            }
+            
+            // Add event listeners
+            currentUtterance.onstart = () => {
+                updateVoiceFeedback('🔊 AI spreekt...');
+            };
+            
+            currentUtterance.onend = () => {
+                updateVoiceFeedback('✅ Klaar met spreken. U kunt nu antwoorden.');
+                currentUtterance = null;
+            };
+            
+            currentUtterance.onerror = (event) => {
+                console.error('Speech synthesis error:', event);
+                updateVoiceFeedback('❌ Spraak uitvoer mislukt.');
+                currentUtterance = null;
+            };
+            
+            // Speak the text
+            speechSynthesis.speak(currentUtterance);
+        }
+        
+        // Initialize voices when available
+        function initializeVoices() {
+            if (speechSynthesis.getVoices().length === 0) {
+                speechSynthesis.addEventListener('voiceschanged', initializeVoices);
+            }
+        }
+        
+        // Initialize voices on page load
+        initializeVoices();
     </script>
 
