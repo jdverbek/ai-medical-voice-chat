@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: ai-medical-voice-chat
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python src/main.py
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_DEBUG
+        value: False
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: MAX_CONTENT_LENGTH
+        value: "16777216"
+      - key: UPLOAD_FOLDER
+        value: uploads
+      - key: OPENAI_API_KEY
+        sync: false  # This will be set manually in Render dashboard
+    healthCheckPath: /
+    autoDeploy: true
+    branch: master
+    repo: https://github.com/jdverbek/ai-medical-voice-chat
+

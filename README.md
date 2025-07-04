@@ -123,29 +123,43 @@ UPLOAD_FOLDER=uploads
 
 ## 🚀 Deployment
 
-### Render Deployment
+### Render Deployment (Recommended)
 
-1. **Push naar GitHub**
-   ```bash
-   git add .
-   git commit -m "Initial commit"
-   git push origin main
-   ```
+**Quick Deploy Button:**
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/jdverbek/ai-medical-voice-chat)
 
-2. **Connect Render**
-   - Ga naar [Render Dashboard](https://dashboard.render.com)
-   - Klik "New +" → "Web Service"
-   - Connect je GitHub repository
+**Manual Deployment:**
 
-3. **Configure Build**
+1. **Create Render Account**
+   - Go to [render.com](https://render.com) and sign up with GitHub
+   - Authorize Render to access your repositories
+
+2. **Deploy from GitHub**
+   - Click "New +" → "Web Service" in Render dashboard
+   - Connect repository: `jdverbek/ai-medical-voice-chat`
+   - Branch: `master`
+
+3. **Configure Service**
+   - **Name**: `ai-medical-voice-chat`
    - **Build Command**: `pip install -r requirements.txt`
    - **Start Command**: `python src/main.py`
-   - **Environment**: Python 3
+   - **Plan**: Free (or paid for production)
 
 4. **Set Environment Variables**
-   - `OPENAI_API_KEY`: Je OpenAI API key
-   - `FLASK_ENV`: `production`
-   - `SECRET_KEY`: Een veilige secret key
+   ```
+   OPENAI_API_KEY=your_openai_api_key_here
+   FLASK_ENV=production
+   FLASK_DEBUG=False
+   CORS_ORIGINS=*
+   MAX_CONTENT_LENGTH=16777216
+   ```
+
+5. **Deploy**
+   - Click "Create Web Service"
+   - Wait for build to complete (2-5 minutes)
+   - Your app will be live at: `https://your-service-name.onrender.com`
+
+**📋 For detailed deployment instructions, see [DEPLOY.md](DEPLOY.md)**
 
 ### Docker Deployment
 
