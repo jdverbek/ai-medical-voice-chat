@@ -1,2 +1,2 @@
-web: python src/main_working.py
+web: python src/main_debug.py
 
