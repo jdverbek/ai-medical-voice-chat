@@ -1,2 +1,2 @@
-web: python src/main_simple_routes.py
+web: python src/main_api_only.py
 
