@@ -398,10 +398,28 @@ def handle_send_audio(data):
         audio_data = data.get('audio')
         
         if audio_data:
-            async def send_audio_async():
-                await client.send_audio(audio_data)
+            # Send audio in separate thread to avoid event loop issues
+            def send_audio_in_thread():
+                try:
+                    # Create new event loop for this thread
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    
+                    # Send the audio
+                    loop.run_until_complete(client.send_audio(audio_data))
+                    
+                except Exception as e:
+                    logger.error(f"Error in audio thread: {e}")
+                    socketio.emit('realtime_error', {
+                        'message': f'Audio thread error: {str(e)}'
+                    }, room=request.sid)
+                finally:
+                    loop.close()
             
-            asyncio.create_task(send_audio_async())
+            # Start audio sending in separate thread
+            thread = threading.Thread(target=send_audio_in_thread)
+            thread.daemon = True
+            thread.start()
         
     except Exception as e:
         logger.error(f"Error sending audio: {e}")
@@ -417,10 +435,28 @@ def handle_commit_audio():
         
         client = active_connections[request.sid]
         
-        async def commit_audio_async():
-            await client.commit_audio()
+        # Commit audio in separate thread to avoid event loop issues
+        def commit_audio_in_thread():
+            try:
+                # Create new event loop for this thread
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
+                # Commit the audio
+                loop.run_until_complete(client.commit_audio())
+                
+            except Exception as e:
+                logger.error(f"Error in commit thread: {e}")
+                socketio.emit('realtime_error', {
+                    'message': f'Commit thread error: {str(e)}'
+                }, room=request.sid)
+            finally:
+                loop.close()
         
-        asyncio.create_task(commit_audio_async())
+        # Start commit in separate thread
+        thread = threading.Thread(target=commit_audio_in_thread)
+        thread.daemon = True
+        thread.start()
         
     except Exception as e:
         logger.error(f"Error committing audio: {e}")
