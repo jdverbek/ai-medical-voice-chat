@@ -359,11 +359,28 @@ def handle_connect_realtime(data):
         client = OpenAIRealtimeClient(api_key, request.sid)
         active_connections[request.sid] = client
         
-        # Connect asynchronously
-        async def connect_async():
-            await client.connect()
+        # Connect in a new thread to avoid event loop issues
+        def connect_in_thread():
+            try:
+                # Create new event loop for this thread
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
+                # Run the connection
+                loop.run_until_complete(client.connect())
+                
+            except Exception as e:
+                logger.error(f"Error in connection thread: {e}")
+                socketio.emit('realtime_error', {
+                    'message': f'Connection thread error: {str(e)}'
+                }, room=request.sid)
+            finally:
+                loop.close()
         
-        asyncio.create_task(connect_async())
+        # Start connection in separate thread
+        thread = threading.Thread(target=connect_in_thread)
+        thread.daemon = True
+        thread.start()
         
     except Exception as e:
         logger.error(f"Error connecting to Realtime API: {e}")
