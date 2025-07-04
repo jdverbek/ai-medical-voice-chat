@@ -60,11 +60,11 @@
                     </div>
 
                     <div class="start-options">
-                        <button id="startVoiceChat" class="primary-btn large">
+                        <button id="startVoiceChat" class="primary-btn large" onclick="startVoiceConversation()">
                             <span class="btn-icon">🎤</span>
                             Start Spraakgesprek
                         </button>
-                        <button id="startTextChat" class="secondary-btn large">
+                        <button id="startTextChat" class="secondary-btn large" onclick="startTextConversation()">
                             <span class="btn-icon">💬</span>
                             Start Tekstgesprek
                         </button>
@@ -234,10 +234,118 @@
 
 
     <script>
+        // Simple inline functions to handle button clicks
+        function startVoiceConversation() {
+            console.log('Starting voice conversation...');
+            showChatInterface('voice');
+        }
+        
+        function startTextConversation() {
+            console.log('Starting text conversation...');
+            showChatInterface('text');
+        }
+        
+        function showChatInterface(mode) {
+            // Hide welcome screen
+            document.getElementById('welcomeScreen').classList.remove('active');
+            // Show chat screen
+            document.getElementById('chatScreen').classList.add('active');
+            
+            // Add initial AI message
+            const chatMessages = document.getElementById('chatMessages');
+            if (chatMessages) {
+                const welcomeMessage = document.createElement('div');
+                welcomeMessage.className = 'message ai-message';
+                welcomeMessage.innerHTML = `
+                    <div class="message-avatar">🤖</div>
+                    <div class="message-content">
+                        <div class="message-text">Welkom! Ik help u bij het verzamelen van uw medische informatie. Wat is uw hoofdklacht vandaag?</div>
+                    </div>
+                `;
+                chatMessages.appendChild(welcomeMessage);
+            }
+            
+            // Show appropriate input mode
+            if (mode === 'text') {
+                document.getElementById('voiceInput').classList.remove('active');
+                document.getElementById('textInput').classList.add('active');
+            } else {
+                document.getElementById('textInput').classList.remove('active');
+                document.getElementById('voiceInput').classList.add('active');
+            }
+        }
+        
         // Initialize the app when DOM is loaded
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM loaded, initializing app...');
-            window.medicalChatApp = new MedicalChatApp();
+            console.log('DOM loaded, app ready...');
+            
+            // Add send button functionality
+            const sendBtn = document.getElementById('sendBtn');
+            const messageInput = document.getElementById('messageInput');
+            
+            if (sendBtn && messageInput) {
+                sendBtn.addEventListener('click', function() {
+                    const text = messageInput.value.trim();
+                    if (text) {
+                        addUserMessage(text);
+                        messageInput.value = '';
+                        setTimeout(() => addAIResponse(text), 1000);
+                    }
+                });
+                
+                messageInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendBtn.click();
+                    }
+                });
+                
+                messageInput.addEventListener('input', function() {
+                    sendBtn.disabled = !this.value.trim();
+                });
+            }
         });
+        
+        function addUserMessage(text) {
+            const chatMessages = document.getElementById('chatMessages');
+            if (chatMessages) {
+                const userMessage = document.createElement('div');
+                userMessage.className = 'message user-message';
+                userMessage.innerHTML = `
+                    <div class="message-content">
+                        <div class="message-text">${text}</div>
+                    </div>
+                    <div class="message-avatar">👤</div>
+                `;
+                chatMessages.appendChild(userMessage);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        }
+        
+        function addAIResponse(userText) {
+            const responses = [
+                "Dank u voor die informatie. Kunt u mij meer vertellen over wanneer deze klachten zijn begonnen?",
+                "Ik begrijp het. Heeft u nog andere symptomen opgemerkt?",
+                "Dat is nuttige informatie. Gebruikt u momenteel medicijnen?",
+                "Kunt u de pijn beschrijven? Is het een scherpe, doffe, of kloppende pijn?",
+                "Heeft u deze klachten eerder gehad? Zo ja, wanneer was dat?"
+            ];
+            
+            const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+            
+            const chatMessages = document.getElementById('chatMessages');
+            if (chatMessages) {
+                const aiMessage = document.createElement('div');
+                aiMessage.className = 'message ai-message';
+                aiMessage.innerHTML = `
+                    <div class="message-avatar">🤖</div>
+                    <div class="message-content">
+                        <div class="message-text">${randomResponse}</div>
+                    </div>
+                `;
+                chatMessages.appendChild(aiMessage);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        }
     </script>
 
