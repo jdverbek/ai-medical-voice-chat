@@ -3,188 +3,112 @@ import sys
 import json
 import asyncio
 import logging
-import threading
-import time
-from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
-from flask_socketio import SocketIO, emit, disconnect
+import base64
 import websockets
-from dotenv import load_dotenv
+from flask import Flask, render_template, request, jsonify
+from flask_cors import CORS
+from flask_socketio import SocketIO, emit
+import threading
+from datetime import datetime
 
-# Load environment variables
-load_dotenv()
-
-# Configure comprehensive logging
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler('app.log')
+        logging.FileHandler('realtime_api.log')
     ]
 )
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__, static_folder='static')
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'medical-voice-chat-secret-key-2024')
+# Flask app setup
+app = Flask(__name__, static_folder='static', template_folder='static')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+CORS(app, origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
 
-# Enable CORS for all routes
-CORS(app, origins="*", allow_headers=["Content-Type", "Authorization"])
-
-# Initialize SocketIO with proper configuration
-socketio = SocketIO(
-    app, 
-    cors_allowed_origins="*",
-    async_mode='threading',
-    logger=True,
-    engineio_logger=True
-)
+# Global state
+active_connections = {}
 
 class OpenAIRealtimeClient:
-    def __init__(self, api_key, client_sid):
+    def __init__(self, api_key, socket_id):
         self.api_key = api_key
-        self.client_sid = client_sid
+        self.socket_id = socket_id
         self.websocket = None
         self.connected = False
         self.conversation_history = []
-        self.asked_questions = set()
         self.current_phase = 'hoofdklacht'
-        self.patient_data = {}
-        self.loop = None
-        self.thread = None
+        self.questions_asked = 0
         
-        # Comprehensive cardiological question database
-        self.question_phases = {
-            'hoofdklacht': [
-                "Wat is uw belangrijkste hartklacht op dit moment?",
-                "Kunt u uw klachten in uw eigen woorden beschrijven?"
-            ],
-            'symptomen': [
-                "Sinds wanneer heeft u deze klachten?",
-                "Hoe zou u de pijn beschrijven - is het drukkend, stekend, of brandend?",
-                "Straalt de pijn uit naar uw arm, kaak, rug of andere delen?",
-                "Merkt u dat de klachten samenhangen met inspanning of stress?",
-                "Heeft u ook last van kortademigheid tijdens de klachten?",
-                "Ervaart u hartkloppingen of een onregelmatige hartslag?",
-                "Heeft u last van duizeligheid, zweten of misselijkheid?",
-                "Zijn er momenten dat u flauw bent gevallen?"
-            ],
-            'triggers': [
-                "Wat maakt uw klachten erger?",
-                "Wat helpt om de klachten te verminderen?",
-                "Merkt u verschil tussen rust en inspanning?",
-                "Zijn er specifieke situaties die de klachten uitlokken?",
-                "Hoe reageren uw klachten op rust of nitraat?"
-            ],
-            'voorgeschiedenis': [
-                "Heeft u eerder hartproblemen gehad?",
-                "Bent u wel eens opgenomen geweest voor hartklachten?",
-                "Heeft u een hoge bloeddruk?",
-                "Heeft u diabetes of suikerziekte?",
-                "Heeft u een hoog cholesterol?",
-                "Heeft u eerder een hartinfarct gehad?"
-            ],
-            'medicatie': [
-                "Welke medicijnen gebruikt u momenteel?",
-                "Gebruikt u bloedverdunners?",
-                "Gebruikt u medicijnen voor uw bloeddruk?",
-                "Heeft u bekende allergieën voor medicijnen?",
-                "Gebruikt u pijnstillers regelmatig?"
-            ],
-            'familie': [
-                "Zijn er hartaandoeningen bekend in uw familie?",
-                "Heeft u familie met jonge hartinfarcten?",
-                "Komen hoge bloeddruk of diabetes veel voor in uw familie?",
-                "Zijn er familieleden jong overleden aan hartproblemen?"
-            ],
-            'leefstijl': [
-                "Rookt u of heeft u gerookt?",
-                "Hoeveel alcohol gebruikt u per week?",
-                "Hoe zou u uw conditie en fitheid beschrijven?",
-                "Doet u regelmatig aan sport of beweging?",
-                "Ervaart u veel stress in uw werk of privéleven?"
-            ]
+        # Medical conversation state
+        self.medical_data = {
+            'symptoms': [],
+            'medications': [],
+            'family_history': [],
+            'risk_factors': []
         }
         
-        logger.info(f"OpenAI Realtime Client initialized for session {client_sid}")
+        # Cardiological phases
+        self.phases = [
+            'hoofdklacht',
+            'symptomen', 
+            'triggers',
+            'voorgeschiedenis',
+            'medicatie',
+            'familie',
+            'leefstijl'
+        ]
+        
+        logger.info(f"OpenAI Realtime Client initialized for socket {socket_id}")
     
-    def start_connection(self):
-        """Start the WebSocket connection in a separate thread"""
+    async def connect(self):
+        """Connect to OpenAI Realtime API"""
         try:
-            self.thread = threading.Thread(target=self._run_connection)
-            self.thread.daemon = True
-            self.thread.start()
-            logger.info("Connection thread started")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to start connection thread: {e}")
-            return False
-    
-    def _run_connection(self):
-        """Run the WebSocket connection in its own event loop"""
-        try:
-            self.loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(self.loop)
-            self.loop.run_until_complete(self._connect_and_listen())
-        except Exception as e:
-            logger.error(f"Connection thread error: {e}")
-            self._emit_error(f"Connection failed: {str(e)}")
-        finally:
-            if self.loop:
-                self.loop.close()
-    
-    async def _connect_and_listen(self):
-        """Connect to OpenAI Realtime API and listen for messages"""
-        try:
+            url = "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01"
             headers = {
-                'Authorization': f'Bearer {self.api_key}',
-                'OpenAI-Beta': 'realtime=v1'
+                "Authorization": f"Bearer {self.api_key}",
+                "OpenAI-Beta": "realtime=v1"
             }
             
-            uri = "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01"
+            logger.info(f"Connecting to OpenAI Realtime API for socket {self.socket_id}")
             
-            logger.info("Connecting to OpenAI Realtime API...")
+            self.websocket = await websockets.connect(url, extra_headers=headers)
+            self.connected = True
             
-            async with websockets.connect(uri, extra_headers=headers) as websocket:
-                self.websocket = websocket
-                self.connected = True
-                
-                logger.info("Successfully connected to OpenAI Realtime API")
-                self._emit_connected()
-                
-                # Send initial session configuration
-                await self._send_session_config()
-                
-                # Start the first question
-                await self._start_conversation()
-                
-                # Listen for messages
-                async for message in websocket:
-                    await self._handle_openai_message(message)
-                    
-        except websockets.exceptions.InvalidStatusCode as e:
-            logger.error(f"WebSocket connection failed with status {e.status_code}")
-            if e.status_code == 401:
-                self._emit_error("Invalid API key. Please check your OpenAI API key.")
-            elif e.status_code == 403:
-                self._emit_error("Access denied. Your API key may not have access to the Realtime API.")
-            else:
-                self._emit_error(f"Connection failed with status {e.status_code}")
+            # Configure session
+            await self.configure_session()
+            
+            # Start listening for events
+            asyncio.create_task(self.listen_for_events())
+            
+            logger.info(f"Successfully connected to OpenAI Realtime API for socket {self.socket_id}")
+            
+            # Notify client of successful connection
+            socketio.emit('realtime_connected', {
+                'status': 'connected',
+                'phase': self.current_phase,
+                'message': 'Succesvol verbonden met OpenAI Realtime API'
+            }, room=self.socket_id)
+            
+            return True
+            
         except Exception as e:
-            logger.error(f"WebSocket connection error: {e}")
-            self._emit_error(f"Connection error: {str(e)}")
-        finally:
-            self.connected = False
-            self.websocket = None
+            logger.error(f"Failed to connect to OpenAI Realtime API: {e}")
+            socketio.emit('realtime_error', {
+                'message': f'Verbindingsfout: {str(e)}'
+            }, room=self.socket_id)
+            return False
     
-    async def _send_session_config(self):
-        """Send session configuration to OpenAI"""
+    async def configure_session(self):
+        """Configure the Realtime session"""
         try:
-            config = {
+            # Session configuration
+            session_config = {
                 "type": "session.update",
                 "session": {
                     "modalities": ["text", "audio"],
-                    "instructions": self._get_system_instructions(),
+                    "instructions": self.get_medical_instructions(),
                     "voice": "alloy",
                     "input_audio_format": "pcm16",
                     "output_audio_format": "pcm16",
@@ -195,313 +119,213 @@ class OpenAIRealtimeClient:
                         "type": "server_vad",
                         "threshold": 0.5,
                         "prefix_padding_ms": 300,
-                        "silence_duration_ms": 500
+                        "silence_duration_ms": 200
                     },
-                    "temperature": 0.7,
+                    "tools": [],
+                    "tool_choice": "auto",
+                    "temperature": 0.8,
                     "max_response_output_tokens": 4096
                 }
             }
             
-            await self.websocket.send(json.dumps(config))
-            logger.info("Session configuration sent successfully")
+            await self.websocket.send(json.dumps(session_config))
+            logger.info(f"Session configured for socket {self.socket_id}")
             
         except Exception as e:
-            logger.error(f"Failed to send session config: {e}")
+            logger.error(f"Failed to configure session: {e}")
             raise
     
-    async def _start_conversation(self):
-        """Start the conversation with the first question"""
-        try:
-            first_question = self._get_next_question()
-            if first_question:
-                await self._send_ai_message(first_question)
-                self.asked_questions.add(first_question)
-                logger.info(f"Started conversation with: {first_question}")
-        except Exception as e:
-            logger.error(f"Failed to start conversation: {e}")
-    
-    def _get_system_instructions(self):
-        """Get comprehensive system instructions for the AI"""
-        asked_list = list(self.asked_questions)
-        next_questions = self._get_available_questions()
-        
-        return f"""Je bent een ervaren Nederlandse cardioloog die een systematische anamnese afneemt.
-
-KRITIEKE REGELS:
-1. Stel NOOIT een vraag die je al hebt gesteld
-2. Stel altijd maar één vraag per keer
-3. Wees empathisch en professioneel
-4. Spreek uitsluitend Nederlands
-5. Analyseer elk antwoord grondig voor medische informatie
-
-REEDS GESTELDE VRAGEN (NOOIT HERHALEN):
-{chr(10).join(asked_list)}
+    def get_medical_instructions(self):
+        """Get medical conversation instructions"""
+        return f"""Je bent een Nederlandse AI cardioloog die een systematische anamnese afneemt. 
 
 HUIDIGE FASE: {self.current_phase}
-TOTAAL GESTELDE VRAGEN: {len(self.asked_questions)}
-
-BESCHIKBARE VRAGEN VOOR DEZE FASE:
-{chr(10).join(next_questions[:5])}
+VRAGEN GESTELD: {self.questions_asked}
 
 INSTRUCTIES:
-- Analyseer het antwoord van de patiënt zorgvuldig
-- Extraheer alle relevante medische informatie
-- Kies de meest logische vervolgvraag uit de beschikbare vragen
-- Stel de vraag op een empathische, professionele manier
-- Gebruik geen vragen die al zijn gesteld
+1. Spreek alleen Nederlands
+2. Stel één vraag per keer
+3. Luister aandachtig naar het antwoord
+4. Stel relevante vervolgvragen gebaseerd op het antwoord
+5. Voorkom herhaalde vragen - onthoud wat al is gevraagd
+6. Ga systematisch door de cardiologische anamnese
 
-Als alle vragen in de huidige fase zijn gesteld, ga dan naar de volgende fase."""
+FASES:
+- hoofdklacht: Wat is de hoofdklacht? Wanneer begon het?
+- symptomen: Pijn op borst, kortademigheid, hartkloppingen, duizeligheid
+- triggers: Wat maakt het erger/beter? Inspanning, rust, stress?
+- voorgeschiedenis: Eerdere hartproblemen, operaties, ziekenhuis opnames
+- medicatie: Huidige medicijnen, allergieën, bijwerkingen
+- familie: Familie geschiedenis van hartproblemen
+- leefstijl: Roken, alcohol, beweging, voeding
+
+Begin met een warme begroeting en de eerste vraag over de hoofdklacht.
+Houd de vragen kort en duidelijk.
+Toon empathie en begrip.
+"""
     
-    def _get_available_questions(self):
-        """Get available questions for current phase"""
-        current_questions = self.question_phases.get(self.current_phase, [])
-        return [q for q in current_questions if q not in self.asked_questions]
-    
-    def _get_next_question(self):
-        """Get the next question to ask"""
-        available = self._get_available_questions()
-        if available:
-            return available[0]
-        
-        # Move to next phase if current phase is complete
-        phases = list(self.question_phases.keys())
+    async def listen_for_events(self):
+        """Listen for events from OpenAI Realtime API"""
         try:
-            current_index = phases.index(self.current_phase)
-            if current_index < len(phases) - 1:
-                self.current_phase = phases[current_index + 1]
-                logger.info(f"Moving to next phase: {self.current_phase}")
-                return self._get_next_question()
-        except ValueError:
-            pass
-        
-        return "Dank u wel voor uw antwoorden. Heeft u nog andere klachten of vragen?"
+            async for message in self.websocket:
+                try:
+                    event = json.loads(message)
+                    await self.handle_event(event)
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse event: {e}")
+                except Exception as e:
+                    logger.error(f"Error handling event: {e}")
+                    
+        except websockets.exceptions.ConnectionClosed:
+            logger.info(f"WebSocket connection closed for socket {self.socket_id}")
+            self.connected = False
+        except Exception as e:
+            logger.error(f"Error in event listener: {e}")
+            self.connected = False
     
-    async def _handle_openai_message(self, message):
-        """Handle messages from OpenAI Realtime API"""
-        try:
-            data = json.loads(message)
-            message_type = data.get('type')
+    async def handle_event(self, event):
+        """Handle events from OpenAI Realtime API"""
+        event_type = event.get('type')
+        
+        logger.info(f"Received event: {event_type} for socket {self.socket_id}")
+        
+        if event_type == 'session.created':
+            logger.info(f"Session created for socket {self.socket_id}")
             
-            logger.debug(f"Received from OpenAI: {message_type}")
+        elif event_type == 'session.updated':
+            logger.info(f"Session updated for socket {self.socket_id}")
             
-            if message_type == 'response.text.done':
-                text = data.get('text', '').strip()
-                if text and '?' in text:
-                    # This is likely a question from the AI
-                    self.asked_questions.add(text)
-                    self._update_conversation_phase()
-                    
-                    self._emit_ai_response({
-                        'text': text,
-                        'phase': self.current_phase,
-                        'questions_asked': len(self.asked_questions),
-                        'total_phases': len(self.question_phases)
-                    })
-                    
-                    logger.info(f"AI asked: {text}")
+        elif event_type == 'conversation.item.created':
+            item = event.get('item', {})
+            if item.get('type') == 'message':
+                role = item.get('role')
+                content = item.get('content', [])
+                if content and role == 'assistant':
+                    text_content = next((c.get('text') for c in content if c.get('type') == 'text'), '')
+                    if text_content:
+                        self.conversation_history.append({
+                            'role': 'assistant',
+                            'content': text_content,
+                            'timestamp': datetime.now().isoformat()
+                        })
+                        
+                        # Update conversation state
+                        self.questions_asked += 1
+                        
+                        # Emit to client
+                        socketio.emit('ai_response', {
+                            'text': text_content,
+                            'phase': self.current_phase,
+                            'questions_asked': self.questions_asked,
+                            'total_phases': len(self.phases)
+                        }, room=self.socket_id)
             
-            elif message_type == 'response.audio.delta':
-                if 'delta' in data:
-                    self._emit_audio_delta(data['delta'])
-            
-            elif message_type == 'response.audio.done':
-                self._emit_audio_done()
-            
-            elif message_type == 'input_audio_buffer.speech_started':
-                self._emit_speech_started()
-            
-            elif message_type == 'input_audio_buffer.speech_stopped':
-                self._emit_speech_stopped()
-            
-            elif message_type == 'error':
-                error_msg = data.get('error', {}).get('message', 'Unknown error')
-                logger.error(f"OpenAI API error: {error_msg}")
-                self._emit_error(f"OpenAI error: {error_msg}")
-            
-            elif message_type == 'session.created':
-                logger.info("Session created successfully")
-            
-            elif message_type == 'session.updated':
-                logger.info("Session updated successfully")
+        elif event_type == 'response.audio.delta':
+            # Stream audio to client
+            audio_data = event.get('delta')
+            if audio_data:
+                socketio.emit('audio_delta', {
+                    'audio': audio_data
+                }, room=self.socket_id)
                 
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse OpenAI message: {e}")
-        except Exception as e:
-            logger.error(f"Error handling OpenAI message: {e}")
-    
-    def _update_conversation_phase(self):
-        """Update conversation phase based on questions asked"""
-        total_questions = len(self.asked_questions)
-        phases = list(self.question_phases.keys())
-        
-        # Determine phase based on question count
-        if total_questions <= 2:
-            self.current_phase = 'symptomen'
-        elif total_questions <= 5:
-            self.current_phase = 'triggers'
-        elif total_questions <= 8:
-            self.current_phase = 'voorgeschiedenis'
-        elif total_questions <= 11:
-            self.current_phase = 'medicatie'
-        elif total_questions <= 14:
-            self.current_phase = 'familie'
-        elif total_questions <= 17:
-            self.current_phase = 'leefstijl'
-        
-        logger.info(f"Updated phase to: {self.current_phase} (questions: {total_questions})")
-    
-    async def _send_ai_message(self, text):
-        """Send a text message as the AI"""
-        try:
-            message = {
-                "type": "conversation.item.create",
-                "item": {
-                    "type": "message",
-                    "role": "assistant",
-                    "content": [{
-                        "type": "text",
-                        "text": text
-                    }]
-                }
-            }
-            await self.websocket.send(json.dumps(message))
+        elif event_type == 'response.audio.done':
+            socketio.emit('audio_done', {}, room=self.socket_id)
             
-            # Request audio response
-            response_message = {
-                "type": "response.create",
-                "response": {
-                    "modalities": ["text", "audio"]
-                }
-            }
-            await self.websocket.send(json.dumps(response_message))
+        elif event_type == 'input_audio_buffer.speech_started':
+            socketio.emit('speech_started', {}, room=self.socket_id)
             
-        except Exception as e:
-            logger.error(f"Failed to send AI message: {e}")
+        elif event_type == 'input_audio_buffer.speech_stopped':
+            socketio.emit('speech_stopped', {}, room=self.socket_id)
+            
+        elif event_type == 'conversation.item.input_audio_transcription.completed':
+            transcript = event.get('transcript', '')
+            if transcript:
+                self.conversation_history.append({
+                    'role': 'user',
+                    'content': transcript,
+                    'timestamp': datetime.now().isoformat()
+                })
+                
+                # Extract medical information
+                self.extract_medical_info(transcript)
+                
+        elif event_type == 'error':
+            error_message = event.get('error', {}).get('message', 'Unknown error')
+            logger.error(f"OpenAI API error: {error_message}")
+            socketio.emit('realtime_error', {
+                'message': f'OpenAI fout: {error_message}'
+            }, room=self.socket_id)
+    
+    def extract_medical_info(self, text):
+        """Extract medical information from user input"""
+        text_lower = text.lower()
+        
+        # Extract symptoms
+        symptoms = ['pijn', 'kortademig', 'hartkloppingen', 'duizelig', 'moe', 'zweten']
+        for symptom in symptoms:
+            if symptom in text_lower and symptom not in self.medical_data['symptoms']:
+                self.medical_data['symptoms'].append(symptom)
+        
+        # Extract medications
+        medications = ['aspirine', 'metoprolol', 'lisinopril', 'simvastatine', 'warfarine']
+        for med in medications:
+            if med in text_lower and med not in self.medical_data['medications']:
+                self.medical_data['medications'].append(med)
     
     async def send_audio(self, audio_data):
         """Send audio data to OpenAI"""
         try:
             if not self.connected or not self.websocket:
-                raise Exception("Not connected to OpenAI")
+                logger.error("Not connected to OpenAI Realtime API")
+                return
             
+            # Send audio data
             message = {
                 "type": "input_audio_buffer.append",
                 "audio": audio_data
             }
-            await asyncio.run_coroutine_threadsafe(
-                self.websocket.send(json.dumps(message)), 
-                self.loop
-            )
+            await self.websocket.send(json.dumps(message))
             
         except Exception as e:
             logger.error(f"Failed to send audio: {e}")
-            raise
     
     async def commit_audio(self):
-        """Commit audio buffer and request response"""
+        """Commit audio buffer and generate response"""
         try:
             if not self.connected or not self.websocket:
-                raise Exception("Not connected to OpenAI")
+                logger.error("Not connected to OpenAI Realtime API")
+                return
             
-            # Commit audio
+            # Commit audio buffer
             commit_message = {
                 "type": "input_audio_buffer.commit"
             }
-            await asyncio.run_coroutine_threadsafe(
-                self.websocket.send(json.dumps(commit_message)), 
-                self.loop
-            )
+            await self.websocket.send(json.dumps(commit_message))
             
-            # Request response with updated instructions
+            # Create response
             response_message = {
                 "type": "response.create",
                 "response": {
                     "modalities": ["text", "audio"],
-                    "instructions": self._get_system_instructions()
+                    "instructions": self.get_medical_instructions()
                 }
             }
-            await asyncio.run_coroutine_threadsafe(
-                self.websocket.send(json.dumps(response_message)), 
-                self.loop
-            )
+            await self.websocket.send(json.dumps(response_message))
             
         except Exception as e:
             logger.error(f"Failed to commit audio: {e}")
-            raise
     
-    def _emit_connected(self):
-        """Emit connected event to client"""
-        try:
-            socketio.emit('realtime_connected', {
-                'message': 'Successfully connected to OpenAI Realtime API',
-                'phase': self.current_phase
-            }, room=self.client_sid)
-        except Exception as e:
-            logger.error(f"Failed to emit connected event: {e}")
-    
-    def _emit_error(self, message):
-        """Emit error event to client"""
-        try:
-            socketio.emit('realtime_error', {
-                'message': message
-            }, room=self.client_sid)
-        except Exception as e:
-            logger.error(f"Failed to emit error event: {e}")
-    
-    def _emit_ai_response(self, data):
-        """Emit AI response to client"""
-        try:
-            socketio.emit('ai_response', data, room=self.client_sid)
-        except Exception as e:
-            logger.error(f"Failed to emit AI response: {e}")
-    
-    def _emit_audio_delta(self, audio_data):
-        """Emit audio delta to client"""
-        try:
-            socketio.emit('audio_delta', {
-                'audio': audio_data
-            }, room=self.client_sid)
-        except Exception as e:
-            logger.error(f"Failed to emit audio delta: {e}")
-    
-    def _emit_audio_done(self):
-        """Emit audio done event"""
-        try:
-            socketio.emit('audio_done', {}, room=self.client_sid)
-        except Exception as e:
-            logger.error(f"Failed to emit audio done: {e}")
-    
-    def _emit_speech_started(self):
-        """Emit speech started event"""
-        try:
-            socketio.emit('speech_started', {}, room=self.client_sid)
-        except Exception as e:
-            logger.error(f"Failed to emit speech started: {e}")
-    
-    def _emit_speech_stopped(self):
-        """Emit speech stopped event"""
-        try:
-            socketio.emit('speech_stopped', {}, room=self.client_sid)
-        except Exception as e:
-            logger.error(f"Failed to emit speech stopped: {e}")
-    
-    def disconnect(self):
-        """Disconnect from OpenAI"""
+    async def disconnect(self):
+        """Disconnect from OpenAI Realtime API"""
         try:
             self.connected = False
-            if self.websocket and self.loop:
-                asyncio.run_coroutine_threadsafe(
-                    self.websocket.close(), 
-                    self.loop
-                )
-            logger.info(f"Disconnected client {self.client_sid}")
+            if self.websocket:
+                await self.websocket.close()
+                logger.info(f"Disconnected from OpenAI Realtime API for socket {self.socket_id}")
         except Exception as e:
-            logger.error(f"Error during disconnect: {e}")
+            logger.error(f"Error disconnecting: {e}")
 
-# Global storage for client connections
-clients = {}
-
-# SocketIO Event Handlers
+# Socket.IO event handlers
 @socketio.on('connect')
 def handle_connect():
     logger.info(f"Client connected: {request.sid}")
@@ -509,15 +333,18 @@ def handle_connect():
 @socketio.on('disconnect')
 def handle_disconnect():
     logger.info(f"Client disconnected: {request.sid}")
-    if request.sid in clients:
-        clients[request.sid].disconnect()
-        del clients[request.sid]
+    
+    # Clean up OpenAI connection
+    if request.sid in active_connections:
+        client = active_connections[request.sid]
+        asyncio.create_task(client.disconnect())
+        del active_connections[request.sid]
 
 @socketio.on('connect_realtime')
 def handle_connect_realtime(data):
+    """Handle OpenAI Realtime API connection request"""
     try:
-        api_key = data.get('api_key', '').strip()
-        
+        api_key = data.get('api_key')
         if not api_key:
             emit('realtime_error', {'message': 'API key is required'})
             return
@@ -526,125 +353,79 @@ def handle_connect_realtime(data):
             emit('realtime_error', {'message': 'Invalid API key format'})
             return
         
-        logger.info(f"Connecting to OpenAI Realtime API for client {request.sid}")
+        logger.info(f"Connecting to OpenAI Realtime API for socket {request.sid}")
         
-        # Create and store client
+        # Create OpenAI client
         client = OpenAIRealtimeClient(api_key, request.sid)
-        clients[request.sid] = client
+        active_connections[request.sid] = client
         
-        # Start connection
-        success = client.start_connection()
-        if not success:
-            emit('realtime_error', {'message': 'Failed to start connection'})
-            if request.sid in clients:
-                del clients[request.sid]
+        # Connect asynchronously
+        async def connect_async():
+            await client.connect()
+        
+        asyncio.create_task(connect_async())
         
     except Exception as e:
-        logger.error(f"Error in connect_realtime: {e}")
-        emit('realtime_error', {'message': f'Connection failed: {str(e)}'})
+        logger.error(f"Error connecting to Realtime API: {e}")
+        emit('realtime_error', {'message': f'Connection error: {str(e)}'})
 
 @socketio.on('send_audio')
 def handle_send_audio(data):
+    """Handle audio data from client"""
     try:
-        if request.sid not in clients:
-            emit('realtime_error', {'message': 'Not connected to OpenAI'})
+        if request.sid not in active_connections:
+            emit('realtime_error', {'message': 'Not connected to OpenAI Realtime API'})
             return
         
-        client = clients[request.sid]
+        client = active_connections[request.sid]
         audio_data = data.get('audio')
         
-        if not audio_data:
-            emit('realtime_error', {'message': 'No audio data provided'})
-            return
-        
-        # Send audio in the client's event loop
-        if client.loop and client.connected:
-            asyncio.run_coroutine_threadsafe(
-                client.send_audio(audio_data),
-                client.loop
-            )
-        else:
-            emit('realtime_error', {'message': 'Client not properly connected'})
+        if audio_data:
+            async def send_audio_async():
+                await client.send_audio(audio_data)
             
+            asyncio.create_task(send_audio_async())
+        
     except Exception as e:
-        logger.error(f"Error in send_audio: {e}")
-        emit('realtime_error', {'message': f'Failed to send audio: {str(e)}'})
+        logger.error(f"Error sending audio: {e}")
+        emit('realtime_error', {'message': f'Audio error: {str(e)}'})
 
 @socketio.on('commit_audio')
 def handle_commit_audio():
+    """Handle audio commit request"""
     try:
-        if request.sid not in clients:
-            emit('realtime_error', {'message': 'Not connected to OpenAI'})
+        if request.sid not in active_connections:
+            emit('realtime_error', {'message': 'Not connected to OpenAI Realtime API'})
             return
         
-        client = clients[request.sid]
+        client = active_connections[request.sid]
         
-        if client.loop and client.connected:
-            asyncio.run_coroutine_threadsafe(
-                client.commit_audio(),
-                client.loop
-            )
-        else:
-            emit('realtime_error', {'message': 'Client not properly connected'})
-            
+        async def commit_audio_async():
+            await client.commit_audio()
+        
+        asyncio.create_task(commit_audio_async())
+        
     except Exception as e:
-        logger.error(f"Error in commit_audio: {e}")
-        emit('realtime_error', {'message': f'Failed to commit audio: {str(e)}'})
+        logger.error(f"Error committing audio: {e}")
+        emit('realtime_error', {'message': f'Commit error: {str(e)}'})
 
-# Flask Routes
+# Flask routes
 @app.route('/')
 def index():
     """Serve the main application"""
-    return send_from_directory(app.static_folder, 'index.html')
-
-@app.route('/<path:filename>')
-def static_files(filename):
-    """Serve static files"""
-    return send_from_directory(app.static_folder, filename)
+    return render_template('index.html')
 
 @app.route('/health')
 def health():
     """Health check endpoint"""
     return jsonify({
         'status': 'healthy',
-        'service': 'medical-voice-chat',
-        'realtime_api': 'available',
-        'connected_clients': len(clients)
-    })
-
-@app.route('/api/test-realtime')
-def test_realtime():
-    """Test endpoint for Realtime API functionality"""
-    return jsonify({
-        'status': 'OpenAI Realtime API proxy is running',
-        'endpoints': {
-            'websocket': '/socket.io/',
-            'events': [
-                'connect_realtime',
-                'send_audio', 
-                'commit_audio',
-                'disconnect'
-            ]
-        },
-        'features': [
-            'Speech-to-speech conversation',
-            'Intelligent question tracking',
-            'No question repetition',
-            'Cardiological anamnesis',
-            'Real-time audio processing'
-        ]
+        'timestamp': datetime.now().isoformat(),
+        'active_connections': len(active_connections)
     })
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    logger.info(f"Starting Medical Voice Chat application on port {port}")
-    
-    # Run with SocketIO
-    socketio.run(
-        app, 
-        host='0.0.0.0', 
-        port=port, 
-        debug=False,
-        allow_unsafe_werkzeug=True
-    )
+    logger.info(f"Starting OpenAI Realtime API Medical Voice Chat on port {port}")
+    socketio.run(app, host='0.0.0.0', port=port, debug=False)
 
