@@ -3,243 +3,445 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cardiologische AI Assistent - Speech-to-Speech</title>
-    <meta name="description" content="Geavanceerde spraak-naar-spraak cardiologische anamnese met OpenAI Realtime API">
-    <meta name="keywords" content="cardiologie, AI, spraakherkenning, anamnese, hartklachten">
-    
-    <!-- Favicon -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏥</text></svg>">
-    
-    <!-- Styles -->
-    <link rel="stylesheet" href="realtime-styles.css">
-    
-    <!-- Preload critical resources -->
-    <link rel="preload" href="realtime-app.js" as="script">
-    <link rel="preload" href="openai-realtime-voice.js" as="script">
-    
-    <!-- Meta tags for PWA -->
-    <meta name="theme-color" content="#2c3e50">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Cardiologie AI">
-    
-    <!-- Open Graph meta tags -->
-    <meta property="og:title" content="Cardiologische AI Assistent">
-    <meta property="og:description" content="Geavanceerde spraak-naar-spraak cardiologische anamnese">
-    <meta property="og:type" content="website">
-    <meta property="og:image" content="/static/og-image.png">
-    
-    <!-- Security headers -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://api.openai.com wss://api.openai.com; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self' https://api.openai.com wss://api.openai.com;">
+    <title>Cardiologische AI Assistent - OpenAI Realtime API</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 30px;
+        }
+        
+        .main-content {
+            min-height: 100vh;
+        }
+        
+        .sidebar {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .status-bar {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .status-indicator.ready { background: #4CAF50; }
+        .status-indicator.connecting { background: #FF9800; }
+        .status-indicator.connected { background: #2196F3; }
+        .status-indicator.error { background: #F44336; }
+        
+        .api-section {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .api-section h2 {
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+        }
+        
+        .api-input-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .api-input {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+        }
+        
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+        
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .start-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .start-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .start-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .start-card h3 {
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+        
+        .start-card p {
+            margin-bottom: 20px;
+            opacity: 0.9;
+        }
+        
+        .btn-voice {
+            background: #FF6B6B;
+            color: white;
+            width: 100%;
+            padding: 20px;
+            font-size: 1.1rem;
+        }
+        
+        .btn-voice:hover {
+            background: #ff5252;
+        }
+        
+        .btn-text {
+            background: #4ECDC4;
+            color: white;
+            width: 100%;
+            padding: 20px;
+            font-size: 1.1rem;
+        }
+        
+        .btn-text:hover {
+            background: #26a69a;
+        }
+        
+        .conversation-area {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            min-height: 500px;
+            display: none;
+        }
+        
+        .conversation-area.active {
+            display: block;
+        }
+        
+        .messages-container {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+        
+        .message {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .message.user {
+            background: rgba(76, 175, 80, 0.3);
+            margin-left: 50px;
+        }
+        
+        .message.assistant {
+            background: rgba(33, 150, 243, 0.3);
+            margin-right: 50px;
+        }
+        
+        .voice-controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        
+        .voice-status {
+            text-align: center;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        
+        .voice-status.listening {
+            background: rgba(255, 107, 107, 0.3);
+            animation: pulse 1s infinite;
+        }
+        
+        .voice-status.processing {
+            background: rgba(255, 152, 0, 0.3);
+        }
+        
+        .voice-status.speaking {
+            background: rgba(33, 150, 243, 0.3);
+        }
+        
+        .voice-status.ready {
+            background: rgba(76, 175, 80, 0.3);
+        }
+        
+        .error-message {
+            background: #F44336;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .success-message {
+            background: #4CAF50;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .progress-section {
+            margin-bottom: 20px;
+        }
+        
+        .progress-section h3 {
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+        
+        .realtime-badge {
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: inline-block;
+            margin-left: 10px;
+        }
+        
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .sidebar {
+                position: static;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .start-section {
+                grid-template-columns: 1fr;
+            }
+            
+            .api-input-group {
+                flex-direction: column;
+            }
+        }
+    </style>
 </head>
 <body>
-    <!-- Application will be dynamically loaded here -->
-    
-    <!-- Initial loading screen (will be replaced by JavaScript) -->
-    <div id="initial-loading" class="loading-overlay">
-        <div class="loading-content">
-            <div class="loading-spinner"></div>
-            <h2>🏥 Cardiologische AI Assistent</h2>
-            <p>Speech-to-Speech technologie wordt geladen...</p>
-            <div class="loading-progress">
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: 10%;"></div>
+    <div class="container">
+        <div class="main-content">
+            <div class="header">
+                <h1>🏥 Cardiologische AI Assistent</h1>
+                <p>OpenAI Realtime API voor echte speech-to-speech conversaties<span class="realtime-badge">REALTIME API</span></p>
+            </div>
+            
+            <div class="status-bar">
+                <span class="status-indicator ready" id="status-indicator"></span>
+                <span id="status-text">Klaar voor OpenAI Realtime API configuratie</span>
+            </div>
+            
+            <div class="error-message" id="error-message"></div>
+            <div class="success-message" id="success-message"></div>
+            
+            <div class="api-section">
+                <h2>🔑 OpenAI Realtime API Configuratie</h2>
+                <p>Voer uw OpenAI API key in voor echte speech-to-speech functionaliteit:</p>
+                <div class="api-input-group">
+                    <input type="password" class="api-input" id="api-key-input" placeholder="sk-..." />
+                    <button class="btn btn-primary" id="save-api-key">Verbinden met Realtime API</button>
                 </div>
-                <p>JavaScript modules initialiseren...</p>
+                <p style="font-size: 0.9rem; opacity: 0.8;">🔒 Uw API key wordt alleen lokaal gebruikt voor directe WebSocket verbinding</p>
+            </div>
+            
+            <div class="start-section" id="start-section" style="display: none;">
+                <div class="start-card">
+                    <h3>🎤 Spraakgesprek</h3>
+                    <p>Echte speech-to-speech conversatie met OpenAI Realtime API - geen herhaalde vragen</p>
+                    <button class="btn btn-voice" id="start-voice-btn">Start Spraakgesprek</button>
+                </div>
+                
+                <div class="start-card">
+                    <h3>💬 Tekstgesprek</h3>
+                    <p>Type uw antwoorden en ontvang intelligente vervolgvragen</p>
+                    <button class="btn btn-text" id="start-text-btn">Start Tekstgesprek</button>
+                </div>
+            </div>
+            
+            <div class="conversation-area" id="conversation-area">
+                <h3 id="conversation-title">Conversatie</h3>
+                
+                <div class="voice-status" id="voice-status" style="display: none;">
+                    Klaar om te beginnen
+                </div>
+                
+                <div class="messages-container" id="messages-container"></div>
+                
+                <div class="voice-controls" id="voice-controls" style="display: none;">
+                    <button class="btn btn-primary" id="record-btn">🎤 Start Opname</button>
+                    <button class="btn btn-primary" id="stop-btn" style="display: none;">⏹️ Stop Opname</button>
+                </div>
+                
+                <div id="text-controls" style="display: none;">
+                    <div style="display: flex; gap: 15px; margin-top: 20px;">
+                        <input type="text" id="text-input" placeholder="Typ uw bericht..." style="flex: 1; padding: 15px; border: none; border-radius: 8px; color: #333;">
+                        <button class="btn btn-primary" id="send-btn">Verstuur</button>
+                    </div>
+                </div>
+                
+                <div style="text-align: center; margin-top: 20px;">
+                    <button class="btn btn-primary" id="back-btn">← Terug naar Start</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="sidebar">
+            <div class="progress-section">
+                <h3>📊 Anamnese Voortgang</h3>
+                <div id="conversation-progress">
+                    <p style="opacity: 0.8;">Start een conversatie om voortgang te zien</p>
+                </div>
+            </div>
+            
+            <div style="margin-top: 30px;">
+                <h3>🎯 Wat deze AI doet</h3>
+                <ul style="list-style: none; padding: 0; margin-top: 15px;">
+                    <li style="margin-bottom: 10px;">✅ Echte speech-to-speech met OpenAI</li>
+                    <li style="margin-bottom: 10px;">✅ Voorkomt herhaalde vragen</li>
+                    <li style="margin-bottom: 10px;">✅ Systematische cardiologische anamnese</li>
+                    <li style="margin-bottom: 10px;">✅ Intelligente vraag progressie</li>
+                    <li style="margin-bottom: 10px;">✅ Real-time audio verwerking</li>
+                </ul>
+            </div>
+            
+            <div style="margin-top: 30px;">
+                <h3>🔒 Privacy & Veiligheid</h3>
+                <ul style="list-style: none; padding: 0; margin-top: 15px;">
+                    <li style="margin-bottom: 10px;">✅ Directe OpenAI verbinding</li>
+                    <li style="margin-bottom: 10px;">✅ Geen data opslag op servers</li>
+                    <li style="margin-bottom: 10px;">✅ GDPR-compliant verwerking</li>
+                    <li style="margin-bottom: 10px;">✅ End-to-end encryptie</li>
+                </ul>
             </div>
         </div>
     </div>
 
-    <!-- Emergency fallback content -->
-    <noscript>
-        <div style="text-align: center; padding: 2rem; font-family: Arial, sans-serif;">
-            <h1>🏥 Cardiologische AI Assistent</h1>
-            <p>Deze applicatie vereist JavaScript om te functioneren.</p>
-            <p>Schakel JavaScript in uw browser in en herlaad de pagina.</p>
-        </div>
-    </noscript>
-
-    <!-- Service Worker Registration -->
+    <!-- Load OpenAI Realtime API Client -->
+    <script src="realtime-api-client.js"></script>
+    
+    <!-- Load Intelligent Voice App -->
+    <script src="intelligent-voice-app.js"></script>
+    
+    <!-- Load voices for speech synthesis -->
     <script>
-        // Register service worker for offline functionality
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(registration => {
-                        console.log('SW registered: ', registration);
-                    })
-                    .catch(registrationError => {
-                        console.log('SW registration failed: ', registrationError);
-                    });
-            });
-        }
-    </script>
-
-    <!-- Core Application Scripts -->
-    <script type="module">
-        // Modern browser check
-        if (!window.fetch || !window.Promise || !window.WebSocket) {
-            document.body.innerHTML = `
-                <div style="text-align: center; padding: 2rem; font-family: Arial, sans-serif;">
-                    <h1>🏥 Cardiologische AI Assistent</h1>
-                    <p>Uw browser ondersteunt niet alle benodigde functies.</p>
-                    <p>Update naar een moderne browser (Chrome, Firefox, Safari, Edge).</p>
-                </div>
-            `;
-        }
-    </script>
-
-    <!-- Application JavaScript -->
-    <script src="openai-realtime-voice.js"></script>
-    <script src="realtime-app.js"></script>
-
-    <!-- Analytics and Error Tracking -->
-    <script>
+        speechSynthesis.addEventListener('voiceschanged', () => {
+            console.log('Voices loaded:', speechSynthesis.getVoices().length);
+        });
+        
         // Global error handler
         window.addEventListener('error', (event) => {
             console.error('Global error:', event.error);
-            
-            // Show user-friendly error message
-            const errorContainer = document.getElementById('error-container');
-            if (errorContainer) {
-                const errorText = document.getElementById('error-text');
-                if (errorText) {
-                    errorText.textContent = 'Er is een onverwachte fout opgetreden. Herlaad de pagina om opnieuw te proberen.';
-                    errorContainer.style.display = 'block';
-                }
-            }
         });
-
+        
         // Unhandled promise rejection handler
         window.addEventListener('unhandledrejection', (event) => {
             console.error('Unhandled promise rejection:', event.reason);
-            event.preventDefault();
-        });
-
-        // Performance monitoring
-        window.addEventListener('load', () => {
-            if (window.performance && window.performance.timing) {
-                const loadTime = window.performance.timing.loadEventEnd - window.performance.timing.navigationStart;
-                console.log('Page load time:', loadTime + 'ms');
-            }
-        });
-
-        // Browser compatibility warnings
-        function checkBrowserCompatibility() {
-            const warnings = [];
-            
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                warnings.push('Microfoon toegang wordt mogelijk niet ondersteund');
-            }
-            
-            if (!window.AudioContext && !window.webkitAudioContext) {
-                warnings.push('Audio processing wordt mogelijk niet ondersteund');
-            }
-            
-            if (!window.WebSocket) {
-                warnings.push('Real-time communicatie wordt niet ondersteund');
-            }
-            
-            if (warnings.length > 0) {
-                console.warn('Browser compatibility warnings:', warnings);
-            }
-            
-            return warnings.length === 0;
-        }
-
-        // Initialize compatibility check
-        document.addEventListener('DOMContentLoaded', () => {
-            const isCompatible = checkBrowserCompatibility();
-            if (!isCompatible) {
-                console.warn('Some features may not work properly in this browser');
-            }
-        });
-    </script>
-
-    <!-- Structured Data for SEO -->
-    <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@type": "WebApplication",
-        "name": "Cardiologische AI Assistent",
-        "description": "Geavanceerde spraak-naar-spraak cardiologische anamnese met AI",
-        "applicationCategory": "HealthApplication",
-        "operatingSystem": "Web Browser",
-        "offers": {
-            "@type": "Offer",
-            "price": "0",
-            "priceCurrency": "EUR"
-        },
-        "featureList": [
-            "Speech-to-Speech conversatie",
-            "Cardiologische anamnese",
-            "AI-gestuurde vragen",
-            "Medische rapportage",
-            "GDPR-compliant"
-        ]
-    }
-    </script>
-
-    <!-- Accessibility enhancements -->
-    <script>
-        // Keyboard navigation support
-        document.addEventListener('keydown', (event) => {
-            // Escape key to close modals/errors
-            if (event.key === 'Escape') {
-                const errorContainer = document.getElementById('error-container');
-                if (errorContainer && errorContainer.style.display !== 'none') {
-                    errorContainer.style.display = 'none';
-                }
-            }
-            
-            // Space bar to toggle voice recording (when in voice mode)
-            if (event.code === 'Space' && event.target.tagName !== 'INPUT' && event.target.tagName !== 'TEXTAREA') {
-                const voiceToggle = document.getElementById('voice-toggle');
-                if (voiceToggle && voiceToggle.style.display !== 'none') {
-                    event.preventDefault();
-                    voiceToggle.click();
-                }
-            }
-        });
-
-        // Focus management for accessibility
-        function manageFocus() {
-            // Ensure proper focus order
-            const focusableElements = document.querySelectorAll(
-                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-            );
-            
-            focusableElements.forEach((element, index) => {
-                if (!element.hasAttribute('tabindex')) {
-                    element.setAttribute('tabindex', '0');
-                }
-            });
-        }
-
-        // Initialize focus management when DOM is ready
-        document.addEventListener('DOMContentLoaded', manageFocus);
-    </script>
-
-    <!-- Performance optimization -->
-    <script>
-        // Lazy load non-critical resources
-        function lazyLoadResources() {
-            // Preload audio context for better performance
-            if (window.AudioContext || window.webkitAudioContext) {
-                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                window.audioContextPreload = new AudioContextClass();
-            }
-        }
-
-        // Initialize lazy loading after page load
-        window.addEventListener('load', lazyLoadResources);
-
-        // Memory management
-        window.addEventListener('beforeunload', () => {
-            // Clean up audio contexts and connections
-            if (window.medicalVoiceApp && window.medicalVoiceApp.realtimeVoice) {
-                window.medicalVoiceApp.realtimeVoice.cleanup();
-            }
         });
     </script>
 </body>
