@@ -465,8 +465,8 @@ def handle_commit_audio():
 # Flask routes
 @app.route('/')
 def index():
-    """Serve the voice mode with enhanced audio output"""
-    return render_template('voice-mode-with-audio.html')
+    """Serve the fixed voice mode with proper state management and debugging"""
+    return render_template('fixed-voice-mode.html')
 
 @app.route('/old')
 def old_version():
