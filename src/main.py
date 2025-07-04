@@ -32,12 +32,30 @@ os.makedirs(upload_folder, exist_ok=True)
 app.register_blueprint(user_bp, url_prefix='/api')
 app.register_blueprint(whisper_bp, url_prefix='/api')
 
-# Database configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(os.path.dirname(__file__), 'database', 'app.db')}"
+# Database configuration - Use writable path for Render deployment
+import tempfile
+db_path = os.getenv('DATABASE_URL')
+if not db_path:
+    # Use temporary directory for SQLite on Render (writable)
+    temp_dir = tempfile.gettempdir()
+    db_path = f"sqlite:///{os.path.join(temp_dir, 'app.db')}"
+
+app.config['SQLALCHEMY_DATABASE_URI'] = db_path
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
+
+# Create database tables
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+        print("Database tables created successfully")
+    except Exception as e:
+        print(f"Database creation error: {e}")
+        # Fallback to in-memory database if file system fails
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+        db.init_app(app)
+        db.create_all()
+        print("Using in-memory database as fallback")
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
