@@ -525,18 +525,24 @@
         }
         
         function addAIResponse(userText) {
-            const responses = [
-                "Dank u voor die informatie. Kunt u mij meer vertellen over wanneer deze klachten zijn begonnen?",
-                "Ik begrijp het. Heeft u nog andere symptomen opgemerkt?",
-                "Dat is nuttige informatie. Gebruikt u momenteel medicijnen?",
-                "Kunt u de pijn beschrijven? Is het een scherpe, doffe, of kloppende pijn?",
-                "Heeft u deze klachten eerder gehad? Zo ja, wanneer was dat?",
-                "Hoe lang heeft u al last van deze klachten?",
-                "Zijn er specifieke momenten waarop de klachten erger worden?",
-                "Heeft u familie die soortgelijke problemen heeft gehad?"
-            ];
+            // Store user input for intelligent processing
+            if (!window.medicalData) {
+                window.medicalData = {
+                    symptoms: [],
+                    duration: '',
+                    severity: '',
+                    medications: [],
+                    history: [],
+                    responses: []
+                };
+            }
             
-            const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+            // Process user input intelligently
+            const processedResponse = processUserInput(userText);
+            window.medicalData.responses.push({
+                user: userText,
+                timestamp: new Date().toISOString()
+            });
             
             const chatMessages = document.getElementById('chatMessages');
             if (chatMessages) {
@@ -545,9 +551,9 @@
                 aiMessage.innerHTML = `
                     <div class="message-avatar">🤖</div>
                     <div class="message-content">
-                        <div class="message-text">${randomResponse}</div>
+                        <div class="message-text">${processedResponse}</div>
                         <div class="message-actions">
-                            <button class="speak-btn" onclick="speakText('${randomResponse.replace(/'/g, "\\'")}')">
+                            <button class="speak-btn" onclick="speakText('${processedResponse.replace(/'/g, "\\'")}')">
                                 🔊 Herhaal
                             </button>
                         </div>
@@ -556,16 +562,135 @@
                 chatMessages.appendChild(aiMessage);
                 chatMessages.scrollTop = chatMessages.scrollHeight;
                 
-                // Automatically speak the response in voice mode
+                // Automatically speak the response in voice mode with faster speed
                 if (document.getElementById('voiceInput').classList.contains('active')) {
-                    setTimeout(() => speakText(randomResponse), 500);
+                    setTimeout(() => speakText(processedResponse), 500);
+                }
+                
+                // Check if we have enough information for summary
+                if (window.medicalData.responses.length >= 5) {
+                    setTimeout(() => showMedicalSummary(), 2000);
                 }
             }
         }
         
-        // Text-to-Speech functionality
+        // Intelligent conversation processing
+        function processUserInput(userText) {
+            const text = userText.toLowerCase();
+            const data = window.medicalData;
+            
+            // Extract symptoms
+            const symptomKeywords = ['pijn', 'hoofdpijn', 'buikpijn', 'koorts', 'hoest', 'verkouden', 'moe', 'duizelig', 'misselijk', 'braken', 'diarree', 'constipatie', 'jeuk', 'uitslag', 'zwelling', 'kortademig'];
+            symptomKeywords.forEach(symptom => {
+                if (text.includes(symptom) && !data.symptoms.includes(symptom)) {
+                    data.symptoms.push(symptom);
+                }
+            });
+            
+            // Extract duration
+            const durationPatterns = ['dagen', 'weken', 'maanden', 'jaar', 'gisteren', 'vandaag', 'week geleden'];
+            durationPatterns.forEach(duration => {
+                if (text.includes(duration) && !data.duration) {
+                    data.duration = duration;
+                }
+            });
+            
+            // Extract medications
+            const medicationKeywords = ['medicijn', 'pil', 'tablet', 'paracetamol', 'ibuprofen', 'antibiotica', 'insuline'];
+            medicationKeywords.forEach(med => {
+                if (text.includes(med) && !data.medications.includes(med)) {
+                    data.medications.push(med);
+                }
+            });
+            
+            // Generate intelligent follow-up based on collected data
+            if (data.symptoms.length === 0) {
+                return "Kunt u mij vertellen wat uw hoofdklacht is? Welke symptomen ervaart u?";
+            } else if (!data.duration) {
+                return `U heeft ${data.symptoms.join(' en ')} genoemd. Hoe lang heeft u hier al last van?`;
+            } else if (data.symptoms.includes('pijn') && !data.severity) {
+                return "Kunt u de pijn beschrijven? Is het een scherpe, doffe, of kloppende pijn? Op een schaal van 1 tot 10?";
+            } else if (data.medications.length === 0) {
+                return "Gebruikt u momenteel medicijnen voor deze klachten of andere aandoeningen?";
+            } else if (data.history.length === 0) {
+                return "Heeft u deze klachten eerder gehad? Heeft u bekende allergieën of chronische aandoeningen?";
+            } else {
+                return "Dank u voor de informatie. Is er nog iets anders dat u wilt vermelden over uw klachten?";
+            }
+        }
+        
+        // Show medical summary
+        function showMedicalSummary() {
+            const data = window.medicalData;
+            let summary = "📋 **Medische Samenvatting:**\\n\\n";
+            
+            if (data.symptoms.length > 0) {
+                summary += `**Symptomen:** ${data.symptoms.join(', ')}\\n`;
+            }
+            if (data.duration) {
+                summary += `**Duur:** ${data.duration}\\n`;
+            }
+            if (data.medications.length > 0) {
+                summary += `**Medicijnen:** ${data.medications.join(', ')}\\n`;
+            }
+            
+            summary += "\\n**Aanbeveling:** Raadpleeg uw huisarts voor een professionele diagnose.";
+            
+            const chatMessages = document.getElementById('chatMessages');
+            if (chatMessages) {
+                const summaryMessage = document.createElement('div');
+                summaryMessage.className = 'message ai-message summary-message';
+                summaryMessage.innerHTML = `
+                    <div class="message-avatar">📋</div>
+                    <div class="message-content">
+                        <div class="message-text">${summary.replace(/\\n/g, '<br>')}</div>
+                        <div class="message-actions">
+                            <button class="speak-btn" onclick="speakText('${summary.replace(/'/g, "\\'").replace(/\\n/g, ' ')}')">
+                                🔊 Lees samenvatting voor
+                            </button>
+                            <button class="download-btn" onclick="downloadSummary()">
+                                📄 Download samenvatting
+                            </button>
+                        </div>
+                    </div>
+                `;
+                chatMessages.appendChild(summaryMessage);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        }
+        
+        // Download summary function
+        function downloadSummary() {
+            const data = window.medicalData;
+            let content = "MEDISCHE ANAMNESE SAMENVATTING\\n";
+            content += "================================\\n\\n";
+            content += `Datum: ${new Date().toLocaleDateString('nl-NL')}\\n\\n`;
+            
+            if (data.symptoms.length > 0) {
+                content += `Symptomen: ${data.symptoms.join(', ')}\\n`;
+            }
+            if (data.duration) {
+                content += `Duur klachten: ${data.duration}\\n`;
+            }
+            if (data.medications.length > 0) {
+                content += `Medicijnen: ${data.medications.join(', ')}\\n`;
+            }
+            
+            content += "\\nAanbeveling: Raadpleeg uw huisarts voor een professionele diagnose.";
+            
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `medische-anamnese-${new Date().toISOString().split('T')[0]}.txt`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+        
+        // Text-to-Speech functionality with natural voice optimization
         let speechSynthesis = window.speechSynthesis;
         let currentUtterance = null;
+        let availableVoices = [];
         
         function speakText(text) {
             // Stop any current speech
@@ -576,37 +701,82 @@
             // Create new utterance
             currentUtterance = new SpeechSynthesisUtterance(text);
             
-            // Configure voice settings for Dutch
+            // Configure voice settings for natural Dutch speech
             currentUtterance.lang = 'nl-NL';
-            currentUtterance.rate = 0.9; // Slightly slower for clarity
-            currentUtterance.pitch = 1.0;
-            currentUtterance.volume = 0.8;
+            currentUtterance.rate = 1.1; // Slightly faster for more natural flow
+            currentUtterance.pitch = 1.0; // Natural pitch
+            currentUtterance.volume = 0.9; // Clear volume
             
-            // Try to find a Dutch voice
+            // Find the most natural Dutch voice
             const voices = speechSynthesis.getVoices();
-            const dutchVoice = voices.find(voice => 
-                voice.lang.startsWith('nl') || 
-                voice.name.toLowerCase().includes('dutch') ||
-                voice.name.toLowerCase().includes('nederland')
-            );
+            let selectedVoice = null;
             
-            if (dutchVoice) {
-                currentUtterance.voice = dutchVoice;
+            // Priority order for natural Dutch voices
+            const preferredVoices = [
+                // High quality Dutch voices
+                'Google Nederlands',
+                'Microsoft Hedda - Dutch (Netherlands)',
+                'Microsoft Frank - Dutch (Netherlands)', 
+                'Xander (Enhanced)', // macOS Dutch voice
+                'Claire (Enhanced)', // macOS Dutch voice
+                'Ellen', // Windows Dutch voice
+                'Lotte', // Windows Dutch voice
+                // Fallback to any Dutch voice
+                voices.find(voice => voice.lang === 'nl-NL' && voice.name.includes('Neural')),
+                voices.find(voice => voice.lang === 'nl-NL' && voice.name.includes('Premium')),
+                voices.find(voice => voice.lang === 'nl-NL' && voice.name.includes('Enhanced')),
+                voices.find(voice => voice.lang === 'nl-NL'),
+                voices.find(voice => voice.lang.startsWith('nl')),
+                // Last resort: any natural sounding voice
+                voices.find(voice => voice.name.includes('Neural')),
+                voices.find(voice => voice.name.includes('Enhanced')),
+                voices.find(voice => voice.name.includes('Premium'))
+            ];
+            
+            // Select the first available preferred voice
+            for (const voiceName of preferredVoices) {
+                if (typeof voiceName === 'string') {
+                    selectedVoice = voices.find(voice => voice.name === voiceName);
+                } else if (voiceName) {
+                    selectedVoice = voiceName;
+                }
+                if (selectedVoice) break;
             }
+            
+            if (selectedVoice) {
+                currentUtterance.voice = selectedVoice;
+                console.log('Using voice:', selectedVoice.name);
+            }
+            
+            // Add natural pauses for better flow
+            const processedText = addNaturalPauses(text);
+            currentUtterance.text = processedText;
             
             // Add event listeners
             currentUtterance.onstart = () => {
                 updateVoiceFeedback('🔊 AI spreekt...');
+                // Add visual indication that AI is speaking
+                const aiMessages = document.querySelectorAll('.ai-message');
+                const lastMessage = aiMessages[aiMessages.length - 1];
+                if (lastMessage) {
+                    lastMessage.classList.add('speaking');
+                }
             };
             
             currentUtterance.onend = () => {
                 updateVoiceFeedback('✅ Klaar met spreken. U kunt nu antwoorden.');
+                // Remove speaking indication
+                const speakingMessages = document.querySelectorAll('.ai-message.speaking');
+                speakingMessages.forEach(msg => msg.classList.remove('speaking'));
                 currentUtterance = null;
             };
             
             currentUtterance.onerror = (event) => {
                 console.error('Speech synthesis error:', event);
                 updateVoiceFeedback('❌ Spraak uitvoer mislukt.');
+                // Remove speaking indication
+                const speakingMessages = document.querySelectorAll('.ai-message.speaking');
+                speakingMessages.forEach(msg => msg.classList.remove('speaking'));
                 currentUtterance = null;
             };
             
@@ -614,10 +784,29 @@
             speechSynthesis.speak(currentUtterance);
         }
         
+        // Add natural pauses for better speech flow
+        function addNaturalPauses(text) {
+            return text
+                .replace(/\./g, '. ') // Pause after periods
+                .replace(/\?/g, '? ') // Pause after questions
+                .replace(/!/g, '! ') // Pause after exclamations
+                .replace(/,/g, ', ') // Short pause after commas
+                .replace(/:/g, ': ') // Pause after colons
+                .replace(/;/g, '; ') // Pause after semicolons
+                .replace(/\s+/g, ' ') // Clean up multiple spaces
+                .trim();
+        }
+        
         // Initialize voices when available
         function initializeVoices() {
-            if (speechSynthesis.getVoices().length === 0) {
-                speechSynthesis.addEventListener('voiceschanged', initializeVoices);
+            availableVoices = speechSynthesis.getVoices();
+            if (availableVoices.length === 0) {
+                speechSynthesis.addEventListener('voiceschanged', () => {
+                    availableVoices = speechSynthesis.getVoices();
+                    console.log('Available voices:', availableVoices.map(v => `${v.name} (${v.lang})`));
+                });
+            } else {
+                console.log('Available voices:', availableVoices.map(v => `${v.name} (${v.lang})`));
             }
         }
         

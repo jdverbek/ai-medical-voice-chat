@@ -1171,3 +1171,61 @@ body {
     animation: pulse 1.5s ease-in-out infinite;
 }
 
+
+/* Speaking Animation Styles */
+.ai-message.speaking {
+    background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
+    border-left: 4px solid #2196f3;
+    animation: speaking-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes speaking-pulse {
+    0%, 100% { 
+        transform: scale(1);
+        box-shadow: 0 2px 8px rgba(33, 150, 243, 0.2);
+    }
+    50% { 
+        transform: scale(1.02);
+        box-shadow: 0 4px 16px rgba(33, 150, 243, 0.3);
+    }
+}
+
+.ai-message.speaking .message-avatar {
+    animation: avatar-bounce 1s ease-in-out infinite;
+}
+
+@keyframes avatar-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+}
+
+/* Summary Message Styles */
+.summary-message {
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    border: 2px solid #28a745;
+    border-radius: 12px;
+    margin: 20px 0;
+    padding: 20px;
+}
+
+.summary-message .message-text {
+    font-weight: 500;
+    line-height: 1.6;
+}
+
+.download-btn {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    margin-left: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s ease;
+}
+
+.download-btn:hover {
+    background: #218838;
+}
+
