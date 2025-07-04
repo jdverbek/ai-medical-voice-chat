@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Cardioloog - Voice Mode</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            overflow: hidden;
+        }
+        
+        .voice-container {
+            text-align: center;
+            max-width: 600px;
+            padding: 40px;
+        }
+        
+        .header {
+            margin-bottom: 40px;
+        }
+        
+        .title {
+            font-size: 2.5rem;
+            font-weight: 300;
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
+        
+        .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.7;
+            margin-bottom: 30px;
+        }
+        
+        .voice-orb {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            margin: 0 auto 40px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+        }
+        
+        .voice-orb.listening {
+            animation: pulse 2s infinite;
+            background: rgba(76, 175, 80, 0.3);
+            border-color: rgba(76, 175, 80, 0.5);
+            box-shadow: 0 0 30px rgba(76, 175, 80, 0.4);
+        }
+        
+        .voice-orb.speaking {
+            animation: speak 1s infinite alternate;
+            background: rgba(33, 150, 243, 0.3);
+            border-color: rgba(33, 150, 243, 0.5);
+            box-shadow: 0 0 30px rgba(33, 150, 243, 0.4);
+        }
+        
+        .voice-orb.connecting {
+            animation: spin 2s linear infinite;
+            background: rgba(255, 193, 7, 0.3);
+            border-color: rgba(255, 193, 7, 0.5);
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes speak {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.1); }
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .status-text {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.8;
+        }
+        
+        .api-setup {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .api-input {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 15px;
+            outline: none;
+        }
+        
+        .api-button {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(76, 175, 80, 0.8);
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .api-button:hover {
+            background: rgba(76, 175, 80, 1);
+            transform: translateY(-2px);
+        }
+        
+        .conversation-area {
+            display: none;
+        }
+        
+        .transcript {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 30px;
+            max-height: 200px;
+            overflow-y: auto;
+            text-align: left;
+            backdrop-filter: blur(10px);
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        
+        .message.user {
+            background: rgba(33, 150, 243, 0.3);
+            margin-left: 20px;
+        }
+        
+        .message.assistant {
+            background: rgba(76, 175, 80, 0.3);
+            margin-right: 20px;
+        }
+        
+        .error-message {
+            background: rgba(244, 67, 54, 0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .instructions {
+            opacity: 0.6;
+            font-size: 0.9rem;
+            margin-top: 20px;
+            line-height: 1.5;
+        }
+        
+        @media (max-width: 768px) {
+            .voice-container {
+                padding: 20px;
+            }
+            
+            .title {
+                font-size: 2rem;
+            }
+            
+            .voice-orb {
+                width: 150px;
+                height: 150px;
+                font-size: 3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="voice-container">
+        <div class="header">
+            <h1 class="title">🫀 AI Cardioloog</h1>
+            <p class="subtitle">ChatGPT-style Voice Mode voor Cardiologische Anamnese</p>
+        </div>
+        
+        <div id="api-setup" class="api-setup">
+            <h3 style="margin-bottom: 20px;">OpenAI API Configuratie</h3>
+            <input 
+                type="password" 
+                id="api-key" 
+                class="api-input" 
+                placeholder="Voer uw OpenAI API key in (sk-...)"
+            >
+            <button id="connect-btn" class="api-button">
+                Verbinden en Voice Mode Starten
+            </button>
+        </div>
+        
+        <div id="conversation-area" class="conversation-area">
+            <div id="voice-orb" class="voice-orb">
+                🎤
+            </div>
+            
+            <div id="status-text" class="status-text">
+                Klik op de microfoon om te beginnen
+            </div>
+            
+            <div id="transcript" class="transcript" style="display: none;">
+                <!-- Conversation messages will appear here -->
+            </div>
+            
+            <div class="instructions">
+                💡 Spreek gewoon zoals u zou doen tegen ChatGPT<br>
+                🎯 De AI zal automatisch cardiologische vragen stellen<br>
+                🔄 Continue conversatie zonder knoppen
+            </div>
+        </div>
+        
+        <div id="error-message" class="error-message">
+            <!-- Error messages will appear here -->
+        </div>
+    </div>
+
+    <script>
+        class ChatGPTVoiceMode {
+            constructor() {
+                this.ws = null;
+                this.audioContext = null;
+                this.mediaRecorder = null;
+                this.isConnected = false;
+                this.isListening = false;
+                this.isSpeaking = false;
+                this.conversationStarted = false;
+                
+                this.initializeElements();
+                this.setupEventListeners();
+            }
+            
+            initializeElements() {
+                this.apiSetup = document.getElementById('api-setup');
+                this.conversationArea = document.getElementById('conversation-area');
+                this.voiceOrb = document.getElementById('voice-orb');
+                this.statusText = document.getElementById('status-text');
+                this.transcript = document.getElementById('transcript');
+                this.errorMessage = document.getElementById('error-message');
+                this.apiKeyInput = document.getElementById('api-key');
+                this.connectBtn = document.getElementById('connect-btn');
+            }
+            
+            setupEventListeners() {
+                this.connectBtn.addEventListener('click', () => this.connectToOpenAI());
+                this.apiKeyInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.connectToOpenAI();
+                });
+                this.voiceOrb.addEventListener('click', () => this.toggleVoiceMode());
+            }
+            
+            async connectToOpenAI() {
+                const apiKey = this.apiKeyInput.value.trim();
+                
+                if (!apiKey || !apiKey.startsWith('sk-')) {
+                    this.showError('Voer een geldige OpenAI API key in (begint met sk-)');
+                    return;
+                }
+                
+                try {
+                    this.updateStatus('Verbinden met OpenAI Realtime API...', 'connecting');
+                    
+                    // Connect to OpenAI Realtime API
+                    const wsUrl = `wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01`;
+                    this.ws = new WebSocket(wsUrl, [], {
+                        headers: {
+                            'Authorization': `Bearer ${apiKey}`,
+                            'OpenAI-Beta': 'realtime=v1'
+                        }
+                    });
+                    
+                    this.ws.onopen = () => {
+                        console.log('Connected to OpenAI Realtime API');
+                        this.isConnected = true;
+                        this.showConversationArea();
+                        this.updateStatus('Verbonden! Klik op de microfoon om te beginnen', 'ready');
+                        this.initializeSession();
+                    };
+                    
+                    this.ws.onmessage = (event) => {
+                        this.handleRealtimeMessage(JSON.parse(event.data));
+                    };
+                    
+                    this.ws.onerror = (error) => {
+                        console.error('WebSocket error:', error);
+                        this.showError('Verbindingsfout met OpenAI API. Controleer uw API key.');
+                    };
+                    
+                    this.ws.onclose = () => {
+                        console.log('WebSocket connection closed');
+                        this.isConnected = false;
+                        this.updateStatus('Verbinding verbroken', 'error');
+                    };
+                    
+                } catch (error) {
+                    console.error('Connection error:', error);
+                    this.showError(`Verbindingsfout: ${error.message}`);
+                }
+            }
+            
+            initializeSession() {
+                // Configure the session for medical consultation
+                const sessionConfig = {
+                    type: 'session.update',
+                    session: {
+                        modalities: ['text', 'audio'],
+                        instructions: `Je bent een ervaren cardioloog die een anamnese afneemt. 
+                        
+Gedrag:
+- Spreek Nederlands
+- Stel één vraag tegelijk
+- Luister actief naar de patiënt
+- Stel gerichte follow-up vragen
+- Wees empathisch en professioneel
+- Begin met een warme begroeting
+
+Anamnese focus:
+- Hoofdklacht (wat, wanneer, hoe)
+- Pijnkarakteristieken (SOCRATES)
+- Uitlokkende factoren
+- Begeleidende symptomen
+- Medicatie en voorgeschiedenis
+- Familieanamnese
+- Leefstijlfactoren
+
+Start de conversatie met: "Goedemorgen, ik ben uw AI cardioloog. Vertel mij eens, wat brengt u vandaag naar mij toe?"`,
+                        voice: 'alloy',
+                        input_audio_format: 'pcm16',
+                        output_audio_format: 'pcm16',
+                        input_audio_transcription: {
+                            model: 'whisper-1'
+                        },
+                        turn_detection: {
+                            type: 'server_vad',
+                            threshold: 0.5,
+                            prefix_padding_ms: 300,
+                            silence_duration_ms: 500
+                        }
+                    }
+                };
+                
+                this.ws.send(JSON.stringify(sessionConfig));
+                
+                // Start the conversation
+                setTimeout(() => {
+                    const startMessage = {
+                        type: 'conversation.item.create',
+                        item: {
+                            type: 'message',
+                            role: 'assistant',
+                            content: [{
+                                type: 'text',
+                                text: 'Goedemorgen, ik ben uw AI cardioloog. Vertel mij eens, wat brengt u vandaag naar mij toe?'
+                            }]
+                        }
+                    };
+                    this.ws.send(JSON.stringify(startMessage));
+                    
+                    // Generate the response
+                    this.ws.send(JSON.stringify({ type: 'response.create' }));
+                }, 1000);
+            }
+            
+            handleRealtimeMessage(message) {
+                console.log('Received:', message.type, message);
+                
+                switch (message.type) {
+                    case 'session.created':
+                        console.log('Session created successfully');
+                        break;
+                        
+                    case 'conversation.item.created':
+                        if (message.item.role === 'assistant') {
+                            this.addMessageToTranscript('assistant', message.item.content[0]?.text || '');
+                        }
+                        break;
+                        
+                    case 'response.audio.delta':
+                        // Play audio chunk
+                        this.playAudioChunk(message.delta);
+                        this.updateStatus('AI spreekt...', 'speaking');
+                        break;
+                        
+                    case 'response.audio.done':
+                        this.updateStatus('Luisteren naar u...', 'listening');
+                        break;
+                        
+                    case 'conversation.item.input_audio_transcription.completed':
+                        this.addMessageToTranscript('user', message.transcript);
+                        break;
+                        
+                    case 'input_audio_buffer.speech_started':
+                        this.updateStatus('U spreekt...', 'listening');
+                        break;
+                        
+                    case 'input_audio_buffer.speech_stopped':
+                        this.updateStatus('AI verwerkt...', 'processing');
+                        break;
+                        
+                    case 'error':
+                        console.error('API Error:', message.error);
+                        this.showError(`API Fout: ${message.error.message}`);
+                        break;
+                }
+            }
+            
+            async toggleVoiceMode() {
+                if (!this.isConnected) {
+                    this.showError('Niet verbonden met OpenAI API');
+                    return;
+                }
+                
+                if (!this.isListening) {
+                    await this.startListening();
+                } else {
+                    this.stopListening();
+                }
+            }
+            
+            async startListening() {
+                try {
+                    // Get microphone access
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            sampleRate: 24000,
+                            channelCount: 1,
+                            echoCancellation: true,
+                            noiseSuppression: true
+                        }
+                    });
+                    
+                    // Set up audio context for real-time processing
+                    this.audioContext = new AudioContext({ sampleRate: 24000 });
+                    const source = this.audioContext.createMediaStreamSource(stream);
+                    
+                    // Create audio worklet for real-time audio processing
+                    await this.audioContext.audioWorklet.addModule(this.createAudioWorkletProcessor());
+                    const workletNode = new AudioWorkletNode(this.audioContext, 'realtime-processor');
+                    
+                    workletNode.port.onmessage = (event) => {
+                        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                            // Send audio data to OpenAI
+                            const audioData = {
+                                type: 'input_audio_buffer.append',
+                                audio: this.arrayBufferToBase64(event.data.audio)
+                            };
+                            this.ws.send(JSON.stringify(audioData));
+                        }
+                    };
+                    
+                    source.connect(workletNode);
+                    
+                    this.isListening = true;
+                    this.updateStatus('Luisteren... Spreek nu', 'listening');
+                    
+                    if (!this.conversationStarted) {
+                        this.conversationStarted = true;
+                        this.transcript.style.display = 'block';
+                    }
+                    
+                } catch (error) {
+                    console.error('Microphone error:', error);
+                    this.showError('Kon microfoon niet openen. Controleer uw browser instellingen.');
+                }
+            }
+            
+            stopListening() {
+                if (this.audioContext) {
+                    this.audioContext.close();
+                    this.audioContext = null;
+                }
+                
+                this.isListening = false;
+                this.updateStatus('Klik om opnieuw te luisteren', 'ready');
+            }
+            
+            createAudioWorkletProcessor() {
+                const processorCode = `
+                    class RealtimeProcessor extends AudioWorkletProcessor {
+                        constructor() {
+                            super();
+                            this.bufferSize = 4096;
+                            this.buffer = new Float32Array(this.bufferSize);
+                            this.bufferIndex = 0;
+                        }
+                        
+                        process(inputs) {
+                            const input = inputs[0];
+                            if (input.length > 0) {
+                                const inputData = input[0];
+                                
+                                for (let i = 0; i < inputData.length; i++) {
+                                    this.buffer[this.bufferIndex] = inputData[i];
+                                    this.bufferIndex++;
+                                    
+                                    if (this.bufferIndex >= this.bufferSize) {
+                                        // Convert to PCM16
+                                        const pcm16 = new Int16Array(this.bufferSize);
+                                        for (let j = 0; j < this.bufferSize; j++) {
+                                            pcm16[j] = Math.max(-32768, Math.min(32767, this.buffer[j] * 32768));
+                                        }
+                                        
+                                        this.port.postMessage({ audio: pcm16.buffer });
+                                        this.bufferIndex = 0;
+                                    }
+                                }
+                            }
+                            return true;
+                        }
+                    }
+                    
+                    registerProcessor('realtime-processor', RealtimeProcessor);
+                `;
+                
+                const blob = new Blob([processorCode], { type: 'application/javascript' });
+                return URL.createObjectURL(blob);
+            }
+            
+            playAudioChunk(audioData) {
+                // Decode and play audio chunk
+                try {
+                    const binaryData = atob(audioData);
+                    const arrayBuffer = new ArrayBuffer(binaryData.length);
+                    const uint8Array = new Uint8Array(arrayBuffer);
+                    
+                    for (let i = 0; i < binaryData.length; i++) {
+                        uint8Array[i] = binaryData.charCodeAt(i);
+                    }
+                    
+                    // Convert PCM16 to audio and play
+                    if (!this.audioContext) {
+                        this.audioContext = new AudioContext();
+                    }
+                    
+                    const audioBuffer = this.audioContext.createBuffer(1, arrayBuffer.byteLength / 2, 24000);
+                    const channelData = audioBuffer.getChannelData(0);
+                    const int16Array = new Int16Array(arrayBuffer);
+                    
+                    for (let i = 0; i < int16Array.length; i++) {
+                        channelData[i] = int16Array[i] / 32768;
+                    }
+                    
+                    const source = this.audioContext.createBufferSource();
+                    source.buffer = audioBuffer;
+                    source.connect(this.audioContext.destination);
+                    source.start();
+                    
+                } catch (error) {
+                    console.error('Audio playback error:', error);
+                }
+            }
+            
+            arrayBufferToBase64(buffer) {
+                const bytes = new Uint8Array(buffer);
+                let binary = '';
+                for (let i = 0; i < bytes.byteLength; i++) {
+                    binary += String.fromCharCode(bytes[i]);
+                }
+                return btoa(binary);
+            }
+            
+            addMessageToTranscript(role, text) {
+                if (!text) return;
+                
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${role}`;
+                messageDiv.innerHTML = `
+                    <strong>${role === 'user' ? 'U' : 'AI Cardioloog'}:</strong><br>
+                    ${text}
+                `;
+                
+                this.transcript.appendChild(messageDiv);
+                this.transcript.scrollTop = this.transcript.scrollHeight;
+            }
+            
+            updateStatus(text, state) {
+                this.statusText.textContent = text;
+                this.voiceOrb.className = `voice-orb ${state}`;
+                
+                // Update orb icon based on state
+                switch (state) {
+                    case 'listening':
+                        this.voiceOrb.textContent = '🎤';
+                        break;
+                    case 'speaking':
+                        this.voiceOrb.textContent = '🔊';
+                        break;
+                    case 'processing':
+                        this.voiceOrb.textContent = '🧠';
+                        break;
+                    case 'connecting':
+                        this.voiceOrb.textContent = '⚡';
+                        break;
+                    default:
+                        this.voiceOrb.textContent = '🎤';
+                }
+            }
+            
+            showConversationArea() {
+                this.apiSetup.style.display = 'none';
+                this.conversationArea.style.display = 'block';
+            }
+            
+            showError(message) {
+                this.errorMessage.textContent = message;
+                this.errorMessage.style.display = 'block';
+                
+                setTimeout(() => {
+                    this.errorMessage.style.display = 'none';
+                }, 5000);
+            }
+        }
+        
+        // Initialize the voice mode when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new ChatGPTVoiceMode();
+        });
+    </script>
+</body>
+</html>
+

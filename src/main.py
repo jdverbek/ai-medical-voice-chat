@@ -465,8 +465,8 @@ def handle_commit_audio():
 # Flask routes
 @app.route('/')
 def index():
-    """Serve the fixed realtime application with inline JavaScript"""
-    return render_template('fixed-realtime-index.html')
+    """Serve the ChatGPT-style voice mode application"""
+    return render_template('chatgpt-voice-mode.html')
 
 @app.route('/old')
 def old_version():
