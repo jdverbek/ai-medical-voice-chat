@@ -465,7 +465,12 @@ def handle_commit_audio():
 # Flask routes
 @app.route('/')
 def index():
-    """Serve the main application"""
+    """Serve the true realtime application"""
+    return render_template('true-realtime-index.html')
+
+@app.route('/old')
+def old_version():
+    """Serve the old version for comparison"""
     return render_template('index.html')
 
 @app.route('/health')

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cardiologische AI Assistent - True Realtime</title>
+    <link rel="stylesheet" href="realtime-styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🫀 Cardiologische AI Assistent</h1>
+            <p class="subtitle">v4.0 - True Realtime Speech-to-Speech</p>
+            <div class="status-container">
+                <div id="status-indicator" class="status-indicator ready"></div>
+                <span id="status-text">Klaar voor configuratie</span>
+            </div>
+        </header>
+
+        <!-- Welcome Section -->
+        <section class="welcome-section">
+            <div class="welcome-card">
+                <h2>🗣️ Welkom bij de True Realtime Spraak Anamnese</h2>
+                <p>Ervaar echte continue spraak-naar-spraak conversatie zonder vertragingen!</p>
+                
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🎤</div>
+                        <h3>Continue Spraakconversatie</h3>
+                        <p>Echte realtime audio streaming - geen "verwerken" meer</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <div class="feature-icon">🧠</div>
+                        <h3>Intelligente Vragen</h3>
+                        <p>Geen herhalingen, gerichte cardiologische anamnese</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <div class="feature-icon">📋</div>
+                        <h3>Professioneel Rapport</h3>
+                        <p>Gedetailleerde medische samenvatting voor uw dossier</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <div class="feature-icon">🔒</div>
+                        <h3>Veilig & Privé</h3>
+                        <p>Direct verbonden met OpenAI - geen tussenservers</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- API Configuration -->
+        <section class="config-section">
+            <div class="config-card">
+                <h3>🔑 OpenAI Realtime API Configuratie</h3>
+                <div class="input-group">
+                    <input 
+                        type="password" 
+                        id="api-key-input" 
+                        placeholder="Voer uw OpenAI API key in (sk-...)"
+                        class="api-input"
+                    >
+                    <button id="save-api-key" class="btn btn-primary">
+                        Verbinden met Realtime API
+                    </button>
+                </div>
+                <p class="privacy-note">
+                    🔒 Uw API key wordt alleen lokaal opgeslagen en direct gebruikt voor WebSocket verbinding
+                </p>
+            </div>
+        </section>
+
+        <!-- Start Options -->
+        <section id="start-section" class="start-section" style="display: none;">
+            <div class="start-grid">
+                <button id="start-voice-btn" class="start-btn voice-btn">
+                    <div class="btn-icon">🎤</div>
+                    <h3>Start Realtime Spraakgesprek</h3>
+                    <p>Continue audio streaming zonder vertragingen</p>
+                </button>
+                
+                <button id="start-text-btn" class="start-btn text-btn">
+                    <div class="btn-icon">💬</div>
+                    <h3>Start Tekstgesprek</h3>
+                    <p>Type en ontvang gesproken antwoorden</p>
+                </button>
+            </div>
+        </section>
+
+        <!-- Conversation Area -->
+        <section id="conversation-area" class="conversation-area">
+            <div class="conversation-header">
+                <h2 id="conversation-title">🎤 Realtime Spraakgesprek</h2>
+                <button id="back-btn" class="btn btn-secondary">← Terug</button>
+            </div>
+            
+            <!-- Voice Status -->
+            <div id="voice-status" class="voice-status ready" style="display: none;">
+                🎤 Klaar om te beginnen
+            </div>
+            
+            <!-- Voice Controls -->
+            <div id="voice-controls" class="voice-controls" style="display: none;">
+                <button id="record-btn" class="btn btn-record">
+                    🎤 Start Continue Opname
+                </button>
+                <button id="stop-btn" class="btn btn-stop" style="display: none;">
+                    ⏹️ Stop Opname
+                </button>
+            </div>
+            
+            <!-- Text Controls -->
+            <div id="text-controls" class="text-controls" style="display: none;">
+                <div class="text-input-group">
+                    <input 
+                        type="text" 
+                        id="text-input" 
+                        placeholder="Typ uw antwoord hier..."
+                        class="text-input"
+                    >
+                    <button id="send-btn" class="btn btn-send">📤 Verstuur</button>
+                </div>
+            </div>
+            
+            <!-- Messages Container -->
+            <div id="messages-container" class="messages-container">
+                <!-- Messages will be added here dynamically -->
+            </div>
+        </section>
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-card">
+                <h3>📊 Anamnese Voortgang</h3>
+                <div id="conversation-progress">
+                    <div style="text-align: center; color: #666; margin: 20px 0;">
+                        Nog geen gesprek gestart
+                    </div>
+                </div>
+            </div>
+            
+            <div class="sidebar-card">
+                <h3>ℹ️ Realtime Info</h3>
+                <ul class="info-list">
+                    <li>✅ Continue audio streaming</li>
+                    <li>✅ Geen processing delays</li>
+                    <li>✅ Server VAD detectie</li>
+                    <li>✅ PCM16 audio format</li>
+                    <li>✅ 24kHz sample rate</li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Messages -->
+        <div id="error-message" class="message error-message" style="display: none;"></div>
+        <div id="success-message" class="message success-message" style="display: none;"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="true-realtime-client.js"></script>
+</body>
+</html>
+
