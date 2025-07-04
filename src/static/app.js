@@ -35,16 +35,33 @@ class MedicalChatApp {
     }
 
     setupEventListeners() {
+        console.log('Setting up event listeners...');
+        
         // Welcome screen buttons
         const startVoiceBtn = document.getElementById('startVoiceChat');
         const startTextBtn = document.getElementById('startTextChat');
         
+        console.log('startVoiceBtn:', startVoiceBtn);
+        console.log('startTextBtn:', startTextBtn);
+        
         if (startVoiceBtn) {
-            startVoiceBtn.addEventListener('click', () => this.startChat('voice'));
+            startVoiceBtn.addEventListener('click', () => {
+                console.log('Voice chat button clicked');
+                this.startChat('voice');
+            });
+            console.log('Voice button event listener added');
+        } else {
+            console.error('startVoiceChat button not found!');
         }
         
         if (startTextBtn) {
-            startTextBtn.addEventListener('click', () => this.startChat('text'));
+            startTextBtn.addEventListener('click', () => {
+                console.log('Text chat button clicked');
+                this.startChat('text');
+            });
+            console.log('Text button event listener added');
+        } else {
+            console.error('startTextChat button not found!');
         }
 
         // Chat interface buttons
@@ -85,6 +102,8 @@ class MedicalChatApp {
 
         // Settings controls
         this.setupSettingsControls();
+        
+        console.log('Event listeners setup complete');
     }
 
     setupModalControls() {
