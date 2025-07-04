@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Medische Gesprek Assistent</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <div class="logo-icon">🤖</div>
+                    <h1>AI Medische Gesprek Assistent</h1>
+                </div>
+                <div class="header-controls">
+                    <button id="settingsBtn" class="icon-btn" title="Instellingen">
+                        ⚙️
+                    </button>
+                    <button id="helpBtn" class="icon-btn" title="Help">
+                        ❓
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Welcome Screen -->
+            <div id="welcomeScreen" class="screen active">
+                <div class="welcome-content">
+                    <div class="welcome-icon">👨‍⚕️</div>
+                    <h2>Welkom bij uw AI Medische Assistent</h2>
+                    <p class="welcome-description">
+                        Ik ben een geavanceerde AI-assistent die u helpt bij het verzamelen van uw medische geschiedenis. 
+                        Ik stel intelligente vragen die aangepast zijn aan uw antwoorden, net zoals een echte dokter zou doen.
+                    </p>
+                    
+                    <div class="features-grid">
+                        <div class="feature-card">
+                            <div class="feature-icon">🎤</div>
+                            <h3>Spraakherkenning</h3>
+                            <p>Spreek natuurlijk in het Nederlands of Vlaams</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">🧠</div>
+                            <h3>Intelligente Vragen</h3>
+                            <p>Dynamische follow-up vragen gebaseerd op uw antwoorden</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">🔒</div>
+                            <h3>Veilig & Privé</h3>
+                            <p>GDPR-compliant en medisch vertrouwelijk</p>
+                        </div>
+                    </div>
+
+                    <div class="start-options">
+                        <button id="startVoiceChat" class="primary-btn large">
+                            <span class="btn-icon">🎤</span>
+                            Start Spraakgesprek
+                        </button>
+                        <button id="startTextChat" class="secondary-btn large">
+                            <span class="btn-icon">💬</span>
+                            Start Tekstgesprek
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Interface -->
+            <div id="chatScreen" class="screen">
+                <div class="chat-container">
+                    <!-- Chat Header -->
+                    <div class="chat-header">
+                        <button id="backBtn" class="icon-btn">
+                            ← Terug
+                        </button>
+                        <div class="chat-info">
+                            <h3 id="chatTitle">Medisch Gesprek</h3>
+                            <p id="chatStatus">Klaar om te beginnen</p>
+                        </div>
+                        <div class="chat-controls">
+                            <button id="toggleModeBtn" class="mode-btn">
+                                <span id="modeIcon">🎤</span>
+                                <span id="modeText">Spraak</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Chat Messages -->
+                    <div class="chat-messages" id="chatMessages">
+                        <!-- Messages will be dynamically added here -->
+                    </div>
+
+                    <!-- Chat Input -->
+                    <div class="chat-input-container">
+                        <!-- Voice Input -->
+                        <div id="voiceInput" class="input-section active">
+                            <div class="voice-visualizer">
+                                <div class="voice-animation" id="voiceAnimation">
+                                    <div class="voice-wave"></div>
+                                    <div class="voice-wave"></div>
+                                    <div class="voice-wave"></div>
+                                    <div class="voice-wave"></div>
+                                    <div class="voice-wave"></div>
+                                </div>
+                            </div>
+                            <div class="voice-controls">
+                                <button id="recordBtn" class="record-btn">
+                                    <span class="record-icon">🎤</span>
+                                    <span class="record-text">Druk om te spreken</span>
+                                </button>
+                            </div>
+                            <div class="voice-feedback" id="voiceFeedback">
+                                Druk op de microfoon en begin te spreken...
+                            </div>
+                        </div>
+
+                        <!-- Text Input -->
+                        <div id="textInput" class="input-section">
+                            <div class="text-input-wrapper">
+                                <textarea 
+                                    id="messageInput" 
+                                    placeholder="Typ uw antwoord hier..."
+                                    rows="3"
+                                ></textarea>
+                                <button id="sendBtn" class="send-btn" disabled>
+                                    <span>Verstuur</span>
+                                    <span class="send-icon">→</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary Screen -->
+            <div id="summaryScreen" class="screen">
+                <div class="summary-content">
+                    <div class="summary-header">
+                        <div class="summary-icon">📋</div>
+                        <h2>Gesprek Samenvatting</h2>
+                        <p>Hier is een overzicht van uw medische informatie</p>
+                    </div>
+                    
+                    <div class="summary-sections" id="summaryContent">
+                        <!-- Summary content will be dynamically generated -->
+                    </div>
+
+                    <div class="summary-actions">
+                        <button id="editSummaryBtn" class="secondary-btn">
+                            Bewerken
+                        </button>
+                        <button id="completeSummaryBtn" class="primary-btn">
+                            Voltooien
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Modals -->
+        <div id="settingsModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Instellingen</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="setting-group">
+                        <label>Spraaksnelheid</label>
+                        <input type="range" id="speechRate" min="0.5" max="2" step="0.1" value="0.8">
+                    </div>
+                    <div class="setting-group">
+                        <label>Spraakvolume</label>
+                        <input type="range" id="speechVolume" min="0" max="1" step="0.1" value="1">
+                    </div>
+                    <div class="setting-group">
+                        <label>Tekstgrootte</label>
+                        <select id="fontSize">
+                            <option value="normal">Normaal</option>
+                            <option value="large">Groot</option>
+                            <option value="extra-large">Extra Groot</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="helpModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Help & Instructies</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="help-section">
+                        <h4>Hoe werkt het?</h4>
+                        <p>Deze AI-assistent stelt intelligente vragen over uw gezondheid. De vragen passen zich aan op basis van uw antwoorden, net zoals een echte dokter zou doen.</p>
+                    </div>
+                    <div class="help-section">
+                        <h4>Spraakfunctie</h4>
+                        <p>Druk op de microfoon en spreek duidelijk. De assistent begrijpt Nederlands en Vlaams, inclusief regionale dialecten.</p>
+                    </div>
+                    <div class="help-section">
+                        <h4>Privacy</h4>
+                        <p>Uw gegevens worden veilig verwerkt volgens GDPR-richtlijnen. Spraakopnames worden niet opgeslagen.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p>AI denkt na...</p>
+        </div>
+    </div>
+
+    <!-- JavaScript Files -->
+    <script src="medical-knowledge.js"></script>
+    <script src="conversation-engine.js"></script>
+    <script src="whisper-voice-handler.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
+
