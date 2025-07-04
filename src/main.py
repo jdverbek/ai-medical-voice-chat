@@ -370,7 +370,7 @@ Als alle vragen in de huidige fase zijn gesteld, ga dan naar de volgende fase.""
             response_message = {
                 "type": "response.create",
                 "response": {
-                    "modalities": ["audio"]
+                    "modalities": ["text", "audio"]
                 }
             }
             await self.websocket.send(json.dumps(response_message))
