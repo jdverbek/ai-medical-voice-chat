@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Cardioloog - iOS Voice Mode</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            overflow: hidden;
+        }
+        
+        .voice-container {
+            text-align: center;
+            max-width: 600px;
+            padding: 40px;
+        }
+        
+        .header {
+            margin-bottom: 40px;
+        }
+        
+        .title {
+            font-size: 2.5rem;
+            font-weight: 300;
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
+        
+        .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.7;
+            margin-bottom: 30px;
+        }
+        
+        .voice-orb {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            margin: 0 auto 40px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            touch-action: manipulation;
+        }
+        
+        .voice-orb.listening {
+            animation: pulse 2s infinite;
+            background: rgba(76, 175, 80, 0.3);
+            border-color: rgba(76, 175, 80, 0.5);
+            box-shadow: 0 0 30px rgba(76, 175, 80, 0.4);
+        }
+        
+        .voice-orb.speaking {
+            animation: speak 1s infinite alternate;
+            background: rgba(33, 150, 243, 0.3);
+            border-color: rgba(33, 150, 243, 0.5);
+            box-shadow: 0 0 30px rgba(33, 150, 243, 0.4);
+        }
+        
+        .voice-orb.user-speaking {
+            animation: userSpeak 0.5s infinite alternate;
+            background: rgba(255, 87, 34, 0.3);
+            border-color: rgba(255, 87, 34, 0.5);
+            box-shadow: 0 0 30px rgba(255, 87, 34, 0.4);
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes speak {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.1); }
+        }
+        
+        @keyframes userSpeak {
+            0% { transform: scale(1); box-shadow: 0 0 20px rgba(255, 87, 34, 0.4); }
+            100% { transform: scale(1.08); box-shadow: 0 0 40px rgba(255, 87, 34, 0.6); }
+        }
+        
+        .status-text {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.8;
+        }
+        
+        .api-setup {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .api-input {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 15px;
+            outline: none;
+        }
+        
+        .api-button {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(76, 175, 80, 0.8);
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            touch-action: manipulation;
+            margin-bottom: 10px;
+        }
+        
+        .api-button:hover {
+            background: rgba(76, 175, 80, 1);
+            transform: translateY(-2px);
+        }
+        
+        .conversation-area {
+            display: none;
+        }
+        
+        .audio-controls {
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .audio-button {
+            background: rgba(33, 150, 243, 0.8);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            touch-action: manipulation;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        
+        .audio-button:hover {
+            background: rgba(33, 150, 243, 1);
+        }
+        
+        .audio-button.success {
+            background: rgba(76, 175, 80, 0.8);
+        }
+        
+        .transcript {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 30px;
+            max-height: 200px;
+            overflow-y: auto;
+            text-align: left;
+            backdrop-filter: blur(10px);
+            display: none;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        
+        .message.user {
+            background: rgba(33, 150, 243, 0.3);
+            margin-left: 20px;
+        }
+        
+        .message.assistant {
+            background: rgba(76, 175, 80, 0.3);
+            margin-right: 20px;
+        }
+        
+        .error-message {
+            background: rgba(244, 67, 54, 0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .instructions {
+            opacity: 0.6;
+            font-size: 0.9rem;
+            margin-top: 20px;
+            line-height: 1.5;
+        }
+        
+        .volume-indicator {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+        
+        .volume-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #FFC107, #FF5722);
+            width: 0%;
+            transition: width 0.1s ease;
+        }
+        
+        @media (max-width: 768px) {
+            .voice-container {
+                padding: 20px;
+            }
+            
+            .title {
+                font-size: 2rem;
+            }
+            
+            .voice-orb {
+                width: 150px;
+                height: 150px;
+                font-size: 3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="voice-container">
+        <div class="header">
+            <h1 class="title">🫀 AI Cardioloog</h1>
+            <p class="subtitle">iOS Safari Geoptimaliseerd</p>
+        </div>
+        
+        <div id="api-setup" class="api-setup">
+            <h3 style="margin-bottom: 20px;">OpenAI API Configuratie</h3>
+            <input 
+                type="password" 
+                id="api-key" 
+                class="api-input" 
+                placeholder="Voer uw OpenAI API key in (sk-...)"
+            >
+            <button id="connect-btn" class="api-button">
+                Start iOS Voice Mode
+            </button>
+        </div>
+        
+        <div id="conversation-area" class="conversation-area">
+            <div id="voice-orb" class="voice-orb">
+                🎤
+            </div>
+            
+            <div id="status-text" class="status-text">
+                Luisteren naar uw stem...
+            </div>
+            
+            <div class="volume-indicator">
+                <div id="volume-bar" class="volume-bar"></div>
+            </div>
+            
+            <div id="audio-controls" class="audio-controls">
+                <button id="enable-audio-btn" class="audio-button">
+                    🔊 Audio Inschakelen (VERPLICHT voor iOS)
+                </button>
+                <button id="test-speech-btn" class="audio-button">
+                    🗣️ Test Nederlandse Spraak
+                </button>
+                <button id="start-conversation-btn" class="audio-button">
+                    💬 Start Gesprek
+                </button>
+            </div>
+            
+            <div id="transcript" class="transcript">
+                <!-- Conversation messages will appear here -->
+            </div>
+            
+            <div class="instructions">
+                📱 <strong>iOS Safari Instructies:</strong><br>
+                1️⃣ Klik eerst "Audio Inschakelen"<br>
+                2️⃣ Test met "Test Nederlandse Spraak"<br>
+                3️⃣ Start gesprek als audio werkt<br>
+                🎤 Spreek gewoon - automatische detectie!
+            </div>
+        </div>
+        
+        <div id="error-message" class="error-message">
+            <!-- Error messages will appear here -->
+        </div>
+    </div>
+
+    <script>
+        class IOSVoiceMode {
+            constructor() {
+                this.isConnected = false;
+                this.isListening = false;
+                this.isSpeaking = false;
+                this.conversationStarted = false;
+                this.apiKey = '';
+                this.audioContext = null;
+                this.mediaStream = null;
+                this.analyser = null;
+                this.microphone = null;
+                this.dataArray = null;
+                this.vadThreshold = 30;
+                this.silenceTimeout = null;
+                this.isUserSpeaking = false;
+                this.audioChunks = [];
+                this.mediaRecorder = null;
+                this.conversationHistory = [];
+                this.audioEnabled = false;
+                this.speechSynthesis = null;
+                this.currentUtterance = null;
+                
+                this.initializeElements();
+                this.setupEventListeners();
+                this.log('iOS Voice Mode initialized');
+            }
+            
+            log(message) {
+                const timestamp = new Date().toLocaleTimeString();
+                console.log(`[${timestamp}] ${message}`);
+            }
+            
+            initializeElements() {
+                this.apiSetup = document.getElementById('api-setup');
+                this.conversationArea = document.getElementById('conversation-area');
+                this.voiceOrb = document.getElementById('voice-orb');
+                this.statusText = document.getElementById('status-text');
+                this.transcript = document.getElementById('transcript');
+                this.errorMessage = document.getElementById('error-message');
+                this.apiKeyInput = document.getElementById('api-key');
+                this.connectBtn = document.getElementById('connect-btn');
+                this.volumeBar = document.getElementById('volume-bar');
+                this.audioControls = document.getElementById('audio-controls');
+                this.enableAudioBtn = document.getElementById('enable-audio-btn');
+                this.testSpeechBtn = document.getElementById('test-speech-btn');
+                this.startConversationBtn = document.getElementById('start-conversation-btn');
+            }
+            
+            setupEventListeners() {
+                this.connectBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.startVoiceMode();
+                });
+                
+                this.apiKeyInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.startVoiceMode();
+                    }
+                });
+                
+                this.enableAudioBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.enableAudio();
+                });
+                
+                this.testSpeechBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.testSpeech();
+                });
+                
+                this.startConversationBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.startConversation();
+                });
+                
+                this.voiceOrb.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (!this.audioEnabled) {
+                        this.enableAudio();
+                    } else if (!this.conversationStarted) {
+                        this.startConversation();
+                    }
+                });
+            }
+            
+            async enableAudio() {
+                try {
+                    this.log('Enabling audio for iOS Safari...');
+                    
+                    // Create audio context with user interaction
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    
+                    if (this.audioContext.state === 'suspended') {
+                        await this.audioContext.resume();
+                    }
+                    
+                    // Test with a simple sound
+                    const oscillator = this.audioContext.createOscillator();
+                    const gainNode = this.audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(this.audioContext.destination);
+                    
+                    oscillator.frequency.setValueAtTime(800, this.audioContext.currentTime);
+                    gainNode.gain.setValueAtTime(0.1, this.audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.3);
+                    
+                    oscillator.start(this.audioContext.currentTime);
+                    oscillator.stop(this.audioContext.currentTime + 0.3);
+                    
+                    this.audioEnabled = true;
+                    this.enableAudioBtn.textContent = '✅ Audio Ingeschakeld!';
+                    this.enableAudioBtn.classList.add('success');
+                    
+                    this.log('Audio enabled successfully');
+                    this.showSuccess('Audio ingeschakeld! U hoorde een piepje.');
+                    
+                } catch (error) {
+                    this.log(`Audio enable error: ${error.message}`);
+                    this.showError('Kon audio niet inschakelen. Probeer opnieuw.');
+                }
+            }
+            
+            async testSpeech() {
+                if (!this.audioEnabled) {
+                    this.showError('Schakel eerst audio in!');
+                    return;
+                }
+                
+                try {
+                    this.log('Testing speech synthesis...');
+                    
+                    // Cancel any ongoing speech
+                    if ('speechSynthesis' in window) {
+                        speechSynthesis.cancel();
+                    }
+                    
+                    // Wait for voices to load
+                    await this.waitForVoices();
+                    
+                    const testText = "Hallo, dit is een test van de Nederlandse spraaksynthese. Kunt u mij goed horen?";
+                    
+                    const utterance = new SpeechSynthesisUtterance(testText);
+                    utterance.lang = 'nl-NL';
+                    utterance.rate = 0.8;
+                    utterance.volume = 1.0;
+                    utterance.pitch = 1.0;
+                    
+                    // Find Dutch voice
+                    const voices = speechSynthesis.getVoices();
+                    const dutchVoice = voices.find(voice => 
+                        voice.lang.startsWith('nl') || 
+                        voice.name.toLowerCase().includes('dutch') ||
+                        voice.name.toLowerCase().includes('nederland') ||
+                        voice.name.toLowerCase().includes('ellen')
+                    );
+                    
+                    if (dutchVoice) {
+                        utterance.voice = dutchVoice;
+                        this.log(`Using Dutch voice: ${dutchVoice.name}`);
+                    } else {
+                        this.log('No Dutch voice found, using default');
+                    }
+                    
+                    utterance.onstart = () => {
+                        this.log('Test speech started');
+                        this.testSpeechBtn.textContent = '🔊 Aan het spreken...';
+                        this.updateStatus('🔊 Test spraak...', 'speaking');
+                    };
+                    
+                    utterance.onend = () => {
+                        this.log('Test speech ended');
+                        this.testSpeechBtn.textContent = '✅ Test Geslaagd!';
+                        this.testSpeechBtn.classList.add('success');
+                        this.updateStatus('🎤 Luisteren naar uw stem...', 'listening');
+                        this.showSuccess('Test geslaagd! U zou mij moeten hebben gehoord.');
+                    };
+                    
+                    utterance.onerror = (event) => {
+                        this.log(`Test speech error: ${event.error}`);
+                        this.testSpeechBtn.textContent = '❌ Test Mislukt';
+                        this.showError('Spraaktest mislukt. Controleer uw audio instellingen.');
+                    };
+                    
+                    speechSynthesis.speak(utterance);
+                    
+                } catch (error) {
+                    this.log(`Test speech error: ${error.message}`);
+                    this.showError('Spraaktest mislukt. Probeer opnieuw.');
+                }
+            }
+            
+            async waitForVoices() {
+                return new Promise((resolve) => {
+                    const voices = speechSynthesis.getVoices();
+                    if (voices.length > 0) {
+                        resolve();
+                        return;
+                    }
+                    
+                    speechSynthesis.onvoiceschanged = () => {
+                        resolve();
+                    };
+                    
+                    // Timeout after 3 seconds
+                    setTimeout(() => {
+                        resolve();
+                    }, 3000);
+                });
+            }
+            
+            async startVoiceMode() {
+                const apiKey = this.apiKeyInput.value.trim();
+                
+                if (!apiKey || !apiKey.startsWith('sk-')) {
+                    this.showError('Voer een geldige OpenAI API key in (begint met sk-)');
+                    return;
+                }
+                
+                this.apiKey = apiKey;
+                this.log('Starting iOS voice mode...');
+                
+                try {
+                    this.updateStatus('Verbinden met OpenAI...', 'processing');
+                    
+                    // Test the API key
+                    const testResponse = await fetch('https://api.openai.com/v1/models', {
+                        headers: {
+                            'Authorization': `Bearer ${apiKey}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (!testResponse.ok) {
+                        throw new Error('Ongeldige API key of geen toegang tot OpenAI API');
+                    }
+                    
+                    this.isConnected = true;
+                    this.log('Connected to OpenAI successfully');
+                    this.showConversationArea();
+                    
+                    // Show audio controls
+                    this.audioControls.style.display = 'block';
+                    
+                    // Start microphone
+                    await this.startMicrophone();
+                    
+                } catch (error) {
+                    this.log(`Connection error: ${error.message}`);
+                    this.showError(`Verbindingsfout: ${error.message}`);
+                }
+            }
+            
+            async startMicrophone() {
+                try {
+                    this.log('Starting microphone...');
+                    
+                    this.mediaStream = await navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            sampleRate: 44100,
+                            channelCount: 1,
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true
+                        }
+                    });
+                    
+                    this.log('Microphone access granted');
+                    
+                    // Set up audio analysis
+                    if (!this.audioContext) {
+                        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    }
+                    
+                    this.analyser = this.audioContext.createAnalyser();
+                    this.microphone = this.audioContext.createMediaStreamSource(this.mediaStream);
+                    
+                    this.analyser.fftSize = 256;
+                    this.analyser.smoothingTimeConstant = 0.8;
+                    this.microphone.connect(this.analyser);
+                    
+                    this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+                    
+                    this.log('Audio analysis setup complete');
+                    
+                    // Start voice activity detection
+                    this.detectVoiceActivity();
+                    
+                    this.isListening = true;
+                    this.updateStatus('🎤 Luisteren naar uw stem...', 'listening');
+                    
+                } catch (error) {
+                    this.log(`Microphone error: ${error.message}`);
+                    this.showError('Kon microfoon niet openen. Controleer uw browser instellingen.');
+                }
+            }
+            
+            detectVoiceActivity() {
+                if (!this.analyser || !this.dataArray) return;
+                
+                this.analyser.getByteFrequencyData(this.dataArray);
+                
+                // Calculate average volume
+                let sum = 0;
+                for (let i = 0; i < this.dataArray.length; i++) {
+                    sum += this.dataArray[i];
+                }
+                const average = sum / this.dataArray.length;
+                
+                // Update volume indicator
+                const volumePercent = Math.min(100, (average / 128) * 100);
+                this.volumeBar.style.width = `${volumePercent}%`;
+                
+                // Voice activity detection - only when listening and conversation started
+                if (this.isListening && !this.isSpeaking && this.conversationStarted) {
+                    if (average > this.vadThreshold && !this.isUserSpeaking) {
+                        this.log(`Voice detected! Volume: ${average}`);
+                        this.startSpeechRecording();
+                    } else if (average <= this.vadThreshold && this.isUserSpeaking) {
+                        if (this.silenceTimeout) clearTimeout(this.silenceTimeout);
+                        this.silenceTimeout = setTimeout(() => {
+                            this.log('Silence detected, stopping recording');
+                            this.stopSpeechRecording();
+                        }, 1500);
+                    }
+                }
+                
+                // Continue monitoring
+                requestAnimationFrame(() => this.detectVoiceActivity());
+            }
+            
+            startSpeechRecording() {
+                if (this.isUserSpeaking || this.isSpeaking) return;
+                
+                this.log('Starting speech recording...');
+                this.isUserSpeaking = true;
+                this.isListening = false;
+                this.updateStatus('🗣️ U spreekt...', 'user-speaking');
+                
+                // Stop any current speech
+                if ('speechSynthesis' in window) {
+                    speechSynthesis.cancel();
+                }
+                
+                if (this.silenceTimeout) clearTimeout(this.silenceTimeout);
+                
+                try {
+                    let mimeType = 'audio/webm;codecs=opus';
+                    if (!MediaRecorder.isTypeSupported(mimeType)) {
+                        mimeType = 'audio/mp4';
+                        if (!MediaRecorder.isTypeSupported(mimeType)) {
+                            mimeType = '';
+                        }
+                    }
+                    
+                    this.mediaRecorder = new MediaRecorder(this.mediaStream, mimeType ? { mimeType } : {});
+                    this.audioChunks = [];
+                    
+                    this.mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            this.audioChunks.push(event.data);
+                        }
+                    };
+                    
+                    this.mediaRecorder.onstop = () => {
+                        this.log('MediaRecorder stopped, processing audio...');
+                        const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
+                        this.processAudio(audioBlob);
+                    };
+                    
+                    this.mediaRecorder.start();
+                    this.log('MediaRecorder started');
+                    
+                } catch (error) {
+                    this.log(`MediaRecorder error: ${error.message}`);
+                    this.resetToListening();
+                }
+            }
+            
+            stopSpeechRecording() {
+                if (!this.isUserSpeaking) return;
+                
+                this.log('Stopping speech recording...');
+                this.isUserSpeaking = false;
+                
+                if (this.silenceTimeout) {
+                    clearTimeout(this.silenceTimeout);
+                    this.silenceTimeout = null;
+                }
+                
+                if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+                    this.mediaRecorder.stop();
+                } else {
+                    this.resetToListening();
+                }
+                
+                this.updateStatus('🧠 AI verwerkt uw antwoord...', 'processing');
+            }
+            
+            resetToListening() {
+                this.log('Resetting to listening state');
+                this.isListening = true;
+                this.isSpeaking = false;
+                this.isUserSpeaking = false;
+                this.updateStatus('🎤 Luisteren naar uw stem...', 'listening');
+            }
+            
+            async processAudio(audioBlob) {
+                try {
+                    this.log(`Processing audio blob of size: ${audioBlob.size} bytes`);
+                    
+                    if (audioBlob.size < 1000) {
+                        this.log('Audio blob too small, skipping');
+                        this.resetToListening();
+                        return;
+                    }
+                    
+                    // Convert audio to text using OpenAI Whisper
+                    const formData = new FormData();
+                    formData.append('file', audioBlob, 'audio.wav');
+                    formData.append('model', 'whisper-1');
+                    formData.append('language', 'nl');
+                    
+                    this.log('Sending audio to Whisper API...');
+                    
+                    const transcriptionResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${this.apiKey}`
+                        },
+                        body: formData
+                    });
+                    
+                    if (!transcriptionResponse.ok) {
+                        throw new Error(`Whisper API error: ${transcriptionResponse.status}`);
+                    }
+                    
+                    const transcriptionData = await transcriptionResponse.json();
+                    const userText = transcriptionData.text.trim();
+                    
+                    this.log(`Transcription result: "${userText}"`);
+                    
+                    if (!userText || userText.length < 3) {
+                        this.log('Transcription too short, returning to listening');
+                        this.resetToListening();
+                        return;
+                    }
+                    
+                    // Add user message to transcript and history
+                    this.addMessageToTranscript('user', userText);
+                    this.conversationHistory.push({ role: 'user', content: userText });
+                    
+                    // Get AI response
+                    await this.getAIResponse();
+                    
+                } catch (error) {
+                    this.log(`Audio processing error: ${error.message}`);
+                    this.showError(`Fout bij verwerken audio: ${error.message}`);
+                    this.resetToListening();
+                }
+            }
+            
+            async getAIResponse() {
+                try {
+                    this.log('Getting AI response...');
+                    
+                    const messages = [
+                        {
+                            role: 'system',
+                            content: `Je bent een ervaren cardioloog die een anamnese afneemt. 
+                            
+Gedrag:
+- Spreek Nederlands
+- Stel één vraag tegelijk
+- Luister actief naar de patiënt
+- Stel gerichte follow-up vragen
+- Wees empathisch en professioneel
+
+Anamnese focus:
+- Hoofdklacht (wat, wanneer, hoe)
+- Pijnkarakteristieken (SOCRATES)
+- Uitlokkende factoren
+- Begeleidende symptomen
+- Medicatie en voorgeschiedenis
+- Familieanamnese
+- Leefstijlfactoren
+
+Houd je antwoorden kort en conversationeel (max 2-3 zinnen).`
+                        },
+                        ...this.conversationHistory
+                    ];
+                    
+                    const chatResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${this.apiKey}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model: 'gpt-4',
+                            messages: messages,
+                            max_tokens: 150,
+                            temperature: 0.7
+                        })
+                    });
+                    
+                    if (!chatResponse.ok) {
+                        throw new Error(`Chat API error: ${chatResponse.status}`);
+                    }
+                    
+                    const chatData = await chatResponse.json();
+                    const aiResponse = chatData.choices[0].message.content.trim();
+                    
+                    this.log(`AI response: "${aiResponse}"`);
+                    
+                    // Add AI response to transcript and history
+                    this.addMessageToTranscript('assistant', aiResponse);
+                    this.conversationHistory.push({ role: 'assistant', content: aiResponse });
+                    
+                    // Speak the AI response
+                    await this.speakText(aiResponse);
+                    
+                } catch (error) {
+                    this.log(`AI response error: ${error.message}`);
+                    this.showError(`Fout bij AI response: ${error.message}`);
+                    this.resetToListening();
+                }
+            }
+            
+            async startConversation() {
+                if (this.conversationStarted) return;
+                
+                if (!this.audioEnabled) {
+                    this.showError('Schakel eerst audio in!');
+                    return;
+                }
+                
+                this.log('Starting conversation...');
+                
+                const greeting = "Goedemorgen, ik ben uw AI cardioloog. Vertel mij eens, wat brengt u vandaag naar mij toe?";
+                this.addMessageToTranscript('assistant', greeting);
+                this.conversationHistory.push({ role: 'assistant', content: greeting });
+                this.transcript.style.display = 'block';
+                
+                this.conversationStarted = true;
+                this.startConversationBtn.textContent = '✅ Gesprek Gestart!';
+                this.startConversationBtn.classList.add('success');
+                
+                // Speak the greeting
+                await this.speakText(greeting);
+            }
+            
+            async speakText(text) {
+                try {
+                    this.log(`Speaking text: "${text}"`);
+                    this.isSpeaking = true;
+                    this.isListening = false;
+                    this.updateStatus('🔊 AI spreekt...', 'speaking');
+                    
+                    // Cancel any ongoing speech
+                    if ('speechSynthesis' in window) {
+                        speechSynthesis.cancel();
+                    }
+                    
+                    // Wait a bit for cancel to take effect
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    await this.speakWithSynthesis(text);
+                    
+                } catch (error) {
+                    this.log(`TTS error: ${error.message}`);
+                    this.resetToListening();
+                }
+            }
+            
+            async speakWithSynthesis(text) {
+                return new Promise((resolve) => {
+                    if ('speechSynthesis' in window) {
+                        this.log('Using speech synthesis');
+                        
+                        const utterance = new SpeechSynthesisUtterance(text);
+                        utterance.lang = 'nl-NL';
+                        utterance.rate = 0.8;
+                        utterance.volume = 1.0;
+                        utterance.pitch = 1.0;
+                        
+                        // Find Dutch voice
+                        const voices = speechSynthesis.getVoices();
+                        const dutchVoice = voices.find(voice => 
+                            voice.lang.startsWith('nl') || 
+                            voice.name.toLowerCase().includes('dutch') ||
+                            voice.name.toLowerCase().includes('nederland') ||
+                            voice.name.toLowerCase().includes('ellen')
+                        );
+                        
+                        if (dutchVoice) {
+                            utterance.voice = dutchVoice;
+                            this.log(`Using Dutch voice: ${dutchVoice.name}`);
+                        }
+                        
+                        utterance.onstart = () => {
+                            this.log('TTS started');
+                        };
+                        
+                        utterance.onend = () => {
+                            this.log('TTS ended, returning to listening');
+                            this.isSpeaking = false;
+                            this.resetToListening();
+                            resolve();
+                        };
+                        
+                        utterance.onerror = (event) => {
+                            this.log(`TTS error: ${event.error}`);
+                            this.isSpeaking = false;
+                            this.resetToListening();
+                            resolve();
+                        };
+                        
+                        // Timeout protection
+                        const timeoutDuration = Math.max(5000, text.length * 100);
+                        setTimeout(() => {
+                            if (this.isSpeaking) {
+                                this.log('TTS timeout, forcing end');
+                                speechSynthesis.cancel();
+                                this.isSpeaking = false;
+                                this.resetToListening();
+                                resolve();
+                            }
+                        }, timeoutDuration);
+                        
+                        this.currentUtterance = utterance;
+                        speechSynthesis.speak(utterance);
+                        
+                    } else {
+                        this.log('Speech synthesis not available');
+                        this.isSpeaking = false;
+                        this.resetToListening();
+                        resolve();
+                    }
+                });
+            }
+            
+            addMessageToTranscript(role, text) {
+                if (!text) return;
+                
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${role}`;
+                messageDiv.innerHTML = `
+                    <strong>${role === 'user' ? 'U' : 'AI Cardioloog'}:</strong><br>
+                    ${text}
+                `;
+                
+                this.transcript.appendChild(messageDiv);
+                this.transcript.scrollTop = this.transcript.scrollHeight;
+                
+                this.log(`Added ${role} message to transcript`);
+            }
+            
+            updateStatus(text, state) {
+                this.statusText.textContent = text;
+                this.voiceOrb.className = `voice-orb ${state}`;
+                
+                // Update orb icon based on state
+                switch (state) {
+                    case 'listening':
+                        this.voiceOrb.textContent = '🎤';
+                        break;
+                    case 'user-speaking':
+                        this.voiceOrb.textContent = '🗣️';
+                        break;
+                    case 'speaking':
+                        this.voiceOrb.textContent = '🔊';
+                        break;
+                    case 'processing':
+                        this.voiceOrb.textContent = '🧠';
+                        break;
+                    default:
+                        this.voiceOrb.textContent = '🎤';
+                }
+                
+                this.log(`Status updated: ${text} (${state})`);
+            }
+            
+            showConversationArea() {
+                this.apiSetup.style.display = 'none';
+                this.conversationArea.style.display = 'block';
+            }
+            
+            showError(message) {
+                this.errorMessage.textContent = message;
+                this.errorMessage.style.display = 'block';
+                this.errorMessage.style.background = 'rgba(244, 67, 54, 0.8)';
+                
+                setTimeout(() => {
+                    this.errorMessage.style.display = 'none';
+                }, 8000);
+            }
+            
+            showSuccess(message) {
+                this.errorMessage.textContent = message;
+                this.errorMessage.style.display = 'block';
+                this.errorMessage.style.background = 'rgba(76, 175, 80, 0.8)';
+                
+                setTimeout(() => {
+                    this.errorMessage.style.display = 'none';
+                }, 5000);
+            }
+        }
+        
+        // Initialize the iOS voice mode when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new IOSVoiceMode();
+        });
+    </script>
+</body>
+</html>
+
